@@ -1,6 +1,11 @@
 package check
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/legostin/constitution/pkg/types"
+)
 
 // toStringSlice converts an interface{} (from YAML) to []string.
 func toStringSlice(v interface{}) ([]string, error) {
@@ -40,4 +45,31 @@ func toSliceOfMaps(v interface{}) ([]map[string]interface{}, error) {
 	default:
 		return nil, fmt.Errorf("expected slice of maps, got %T", v)
 	}
+}
+
+// extractContent extracts the scannable content from a HookInput.
+// For Edit tool it returns new_string, for others it returns the specified scanField.
+func extractContent(input *types.HookInput, scanField string) (string, error) {
+	if input.ToolInput == nil {
+		return "", nil
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(input.ToolInput, &m); err != nil {
+		return "", err
+	}
+	if input.ToolName == "Edit" {
+		if ns, ok := m["new_string"].(string); ok {
+			return ns, nil
+		}
+		return "", nil
+	}
+	val, ok := m[scanField]
+	if !ok {
+		return "", nil
+	}
+	str, ok := val.(string)
+	if !ok {
+		return "", nil
+	}
+	return str, nil
 }

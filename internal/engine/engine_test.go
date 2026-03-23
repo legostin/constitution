@@ -106,7 +106,7 @@ func TestEngine_SecretDetect_BlocksSecret(t *testing.T) {
 		HookEvents: []string{"PreToolUse"},
 		ToolMatch:  []string{"Write"},
 		Check: types.CheckConfig{
-			Type: "secret_detect",
+			Type: "secret_regex",
 			Params: map[string]interface{}{
 				"scan_field": "content",
 				"patterns": []interface{}{

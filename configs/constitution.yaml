@@ -74,7 +74,7 @@ rules:
     hook_events: [PreToolUse]
     tool_match: [Write, Edit]
     check:
-      type: secret_detect
+      type: secret_regex
       params:
         scan_field: content
         patterns:
@@ -93,6 +93,40 @@ rules:
         allow_patterns:
           - "AKIAIOSFODNN7EXAMPLE"
           - "(?i)test|example|dummy|placeholder"
+
+  # ── Yelp detect-secrets Integration ────────────────────────────
+  - id: yelp-secret-scan
+    name: "Yelp Secret Detection"
+    description: "Scan with Yelp detect-secrets (28+ detectors)"
+    enabled: false  # Enable if detect-secrets is installed (pip install detect-secrets)
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Write, Edit]
+    check:
+      type: secret_yelp
+      params:
+        plugins:
+          - name: AWSKeyDetector
+          - name: ArtifactoryDetector
+          - name: AzureStorageKeyDetector
+          - name: Base64HighEntropyString
+            limit: 4.5
+          - name: BasicAuthDetector
+          - name: GitHubTokenDetector
+          - name: GitLabTokenDetector
+          - name: HexHighEntropyString
+            limit: 3.0
+          - name: JwtTokenDetector
+          - name: KeywordDetector
+          - name: PrivateKeyDetector
+          - name: SlackDetector
+          - name: StripeDetector
+          - name: TwilioKeyDetector
+        exclude_lines:
+          - "pragma: allowlist"
+        exclude_secrets:
+          - "(?i)example|test|dummy|placeholder"
 
   # ── Block Reading Secret Files ─────────────────────────────────
   - id: secret-read

@@ -10,7 +10,7 @@ rules:
     hook_events: [PreToolUse]
     tool_match: [Write, Edit]
     check:
-      type: secret_detect
+      type: secret_regex
       params:
         scan_field: content
         patterns:

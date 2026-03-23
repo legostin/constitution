@@ -9,7 +9,7 @@ import (
 func TestFilterRules(t *testing.T) {
 	rules := []types.Rule{
 		{ID: "r1", Enabled: true, Priority: 10, Severity: types.SeverityBlock, HookEvents: []string{"PreToolUse"}, ToolMatch: []string{"Bash"}, Check: types.CheckConfig{Type: "cmd_validate"}},
-		{ID: "r2", Enabled: true, Priority: 1, Severity: types.SeverityBlock, HookEvents: []string{"PreToolUse"}, ToolMatch: []string{"Write", "Edit"}, Check: types.CheckConfig{Type: "secret_detect"}},
+		{ID: "r2", Enabled: true, Priority: 1, Severity: types.SeverityBlock, HookEvents: []string{"PreToolUse"}, ToolMatch: []string{"Write", "Edit"}, Check: types.CheckConfig{Type: "secret_regex"}},
 		{ID: "r3", Enabled: false, Priority: 5, Severity: types.SeverityWarn, HookEvents: []string{"PreToolUse"}, ToolMatch: []string{"Bash"}, Check: types.CheckConfig{Type: "cmd_validate"}},
 		{ID: "r4", Enabled: true, Priority: 3, Severity: types.SeverityAudit, HookEvents: []string{"SessionStart"}, Check: types.CheckConfig{Type: "repo_access"}},
 		{ID: "r5", Enabled: true, Priority: 2, Severity: types.SeverityBlock, HookEvents: []string{"PreToolUse"}, ToolMatch: []string{"Read", "Write", "Edit", "Glob", "Grep"}, Check: types.CheckConfig{Type: "dir_acl"}},

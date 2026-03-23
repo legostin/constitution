@@ -170,7 +170,7 @@ rules:
 |---------|-------------------|-------------------|
 | `SessionStart` | Начало сессии | `repo_access`, `skill_inject` |
 | `UserPromptSubmit` | Перед обработкой промпта | `prompt_modify` |
-| `PreToolUse` | Перед вызовом инструмента | `cmd_validate`, `secret_detect`, `dir_acl`, `cel` |
+| `PreToolUse` | Перед вызовом инструмента | `cmd_validate`, `secret_regex`, `dir_acl`, `cel` |
 | `PostToolUse` | После вызова инструмента | `linter` |
 | `Stop` | Агент завершает работу | Любые финальные проверки |
 
@@ -197,13 +197,13 @@ check:
 
 **Как работает**: извлекает поле `command` из `tool_input`, сначала проверяет `allow_patterns` (если совпадение — пропускает), затем `deny_patterns` (если совпадение — блокирует).
 
-### `secret_detect` — Детекция секретов
+### `secret_regex` — Детекция секретов
 
 Сканирует содержимое файлов на наличие секретов перед записью.
 
 ```yaml
 check:
-  type: secret_detect
+  type: secret_regex
   params:
     scan_field: content       # Поле tool_input для сканирования
     patterns:
@@ -316,6 +316,47 @@ expression: >
   tool_input.file_path.endsWith(".sql") &&
   tool_input.content.contains("DROP")
 ```
+
+### `secret_yelp` — Yelp detect-secrets
+
+Интеграция с [Yelp detect-secrets](https://github.com/Yelp/detect-secrets) — 28+ детекторов секретов (AWS, GitHub, GitLab, Slack, Stripe, JWT, entropy-based и др.).
+
+**Требования**: `pip install detect-secrets`
+
+```yaml
+check:
+  type: secret_yelp
+  params:
+    # Плагины detect-secrets (если не указаны — все по умолчанию)
+    plugins:
+      - name: AWSKeyDetector
+      - name: GitHubTokenDetector
+      - name: PrivateKeyDetector
+      - name: Base64HighEntropyString
+        limit: 4.5
+      - name: HexHighEntropyString
+        limit: 3.0
+      - name: KeywordDetector
+      - name: SlackDetector
+      - name: StripeDetector
+    # Фильтры detect-secrets
+    filters:
+      - path: secret_yelp.filters.gibberish.should_exclude_secret
+      - path: secret_yelp.filters.allowlist.is_line_allowlisted
+    # Исключения
+    exclude_secrets: ["(?i)example|test|dummy"]
+    exclude_lines: ["pragma: allowlist"]
+    # Путь к бинарнику (опционально)
+    binary: "detect-secrets"
+    # Режим сканирования
+    scan_mode: "line"         # "line" (по умолчанию) | "content"
+```
+
+**Как работает**: извлекает контент из `tool_input`, сканирует каждую строку через `detect-secrets scan --string`. Конфиг plugins/filters из YAML динамически генерируется в JSON baseline файл. Если `detect-secrets` не установлен — check пропускается с warning.
+
+**Доступные плагины** (28+): `AWSKeyDetector`, `ArtifactoryDetector`, `AzureStorageKeyDetector`, `Base64HighEntropyString`, `BasicAuthDetector`, `CloudantDetector`, `DiscordBotTokenDetector`, `GitHubTokenDetector`, `GitLabTokenDetector`, `HexHighEntropyString`, `IbmCloudIamDetector`, `JwtTokenDetector`, `KeywordDetector`, `MailchimpDetector`, `NpmDetector`, `OpenAIDetector`, `PrivateKeyDetector`, `SendGridDetector`, `SlackDetector`, `StripeDetector`, `TelegramBotTokenDetector`, `TwilioKeyDetector` и др.
+
+**Совместимость**: можно использовать одновременно с `secret_regex` (regex) — они работают независимо.
 
 ### `linter` — Запуск линтеров
 
@@ -466,7 +507,7 @@ rules:
     hook_events: [PreToolUse]
     tool_match: [Write, Edit]
     check:
-      type: secret_detect
+      type: secret_regex
       params:
         scan_field: content
         patterns:
@@ -528,7 +569,7 @@ rules:
       params:
         context_file: ".claude/company-standards.md"
 
-  # ... добавьте secret_detect, dir_acl, cmd_validate, linter, cel правила
+  # ... добавьте secret_regex, dir_acl, cmd_validate, linter, cel правила
 ```
 
 ## Разработка

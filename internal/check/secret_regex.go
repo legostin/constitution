@@ -2,7 +2,6 @@ package check
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"regexp"
 
@@ -21,7 +20,7 @@ type compiledPattern struct {
 	re   *regexp.Regexp
 }
 
-func (s *SecretDetect) Name() string { return "secret_detect" }
+func (s *SecretDetect) Name() string { return "secret_regex" }
 
 func (s *SecretDetect) Init(params map[string]interface{}) error {
 	if sf, ok := params["scan_field"].(string); ok {
@@ -33,12 +32,12 @@ func (s *SecretDetect) Init(params map[string]interface{}) error {
 
 	rawPatterns, ok := params["patterns"]
 	if !ok {
-		return fmt.Errorf("secret_detect: patterns is required")
+		return fmt.Errorf("secret_regex: patterns is required")
 	}
 
 	plist, err := toSliceOfMaps(rawPatterns)
 	if err != nil {
-		return fmt.Errorf("secret_detect: invalid patterns: %w", err)
+		return fmt.Errorf("secret_regex: invalid patterns: %w", err)
 	}
 
 	for _, p := range plist {
@@ -49,7 +48,7 @@ func (s *SecretDetect) Init(params map[string]interface{}) error {
 		}
 		re, err := regexp.Compile(regex)
 		if err != nil {
-			return fmt.Errorf("secret_detect: invalid regex for %q: %w", name, err)
+			return fmt.Errorf("secret_regex: invalid regex for %q: %w", name, err)
 		}
 		s.patterns = append(s.patterns, &compiledPattern{name: name, re: re})
 	}
@@ -59,7 +58,7 @@ func (s *SecretDetect) Init(params map[string]interface{}) error {
 		for _, a := range allowList {
 			re, err := regexp.Compile(a)
 			if err != nil {
-				return fmt.Errorf("secret_detect: invalid allow_pattern %q: %w", a, err)
+				return fmt.Errorf("secret_regex: invalid allow_pattern %q: %w", a, err)
 			}
 			s.allowPatterns = append(s.allowPatterns, re)
 		}
@@ -69,7 +68,7 @@ func (s *SecretDetect) Init(params map[string]interface{}) error {
 }
 
 func (s *SecretDetect) Execute(ctx context.Context, input *types.HookInput) (*types.CheckResult, error) {
-	content, err := s.extractContent(input)
+	content, err := extractContent(input, s.scanField)
 	if err != nil {
 		return &types.CheckResult{Passed: true}, nil // Can't scan, pass through
 	}
@@ -95,33 +94,6 @@ func (s *SecretDetect) Execute(ctx context.Context, input *types.HookInput) (*ty
 	}
 
 	return &types.CheckResult{Passed: true, Message: "no secrets detected"}, nil
-}
-
-func (s *SecretDetect) extractContent(input *types.HookInput) (string, error) {
-	if input.ToolInput == nil {
-		return "", nil
-	}
-	var m map[string]interface{}
-	if err := json.Unmarshal(input.ToolInput, &m); err != nil {
-		return "", err
-	}
-	// For Edit, scan both old_string and new_string
-	if input.ToolName == "Edit" {
-		var combined string
-		if ns, ok := m["new_string"].(string); ok {
-			combined = ns
-		}
-		return combined, nil
-	}
-	val, ok := m[s.scanField]
-	if !ok {
-		return "", nil
-	}
-	str, ok := val.(string)
-	if !ok {
-		return "", nil
-	}
-	return str, nil
 }
 
 func (s *SecretDetect) isAllowed(match string) bool {

@@ -38,12 +38,13 @@ func (r *Registry) Get(name string) (types.Check, error) {
 }
 
 func (r *Registry) registerBuiltins() {
-	r.Register("secret_detect", func() types.Check { return &SecretDetect{} })
+	r.Register("secret_regex", func() types.Check { return &SecretDetect{} })
 	r.Register("dir_acl", func() types.Check { return &DirACL{} })
 	r.Register("cmd_validate", func() types.Check { return &CmdValidate{} })
 	r.Register("repo_access", func() types.Check { return &RepoAccess{} })
 	r.Register("cel", func() types.Check { return &CELCheck{} })
 	r.Register("linter", func() types.Check { return &Linter{} })
+	r.Register("secret_yelp", func() types.Check { return &DetectSecrets{} })
 	r.Register("prompt_modify", func() types.Check { return &PromptModify{} })
 	r.Register("skill_inject", func() types.Check { return &SkillInject{} })
 }
