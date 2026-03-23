@@ -1,0 +1,207 @@
+version: "1"
+name: "acme-constitution"
+
+settings:
+  log_level: "info"
+  log_file: "/tmp/constitution.log"
+
+remote:
+  enabled: false
+  url: "http://localhost:8081"
+  auth_token_env: "CONSTITUTION_TOKEN"
+  timeout: 5000
+  fallback: "local-only"  # allow | deny | local-only
+
+plugins: []
+
+rules:
+  # ── Repository Access Control ──────────────────────────────────
+  - id: repo-access
+    name: "Repository Allowlist"
+    description: "Only allow agent execution in approved repositories"
+    enabled: false  # Enable and configure patterns for your org
+    priority: 1
+    severity: block
+    hook_events: [SessionStart]
+    check:
+      type: repo_access
+      params:
+        mode: allowlist
+        patterns:
+          - "github.com/acme-corp/*"
+        detect_from: git_remote
+
+  # ── Skill / Context Injection ──────────────────────────────────
+  - id: skill-inject
+    name: "Company Context"
+    description: "Inject company-specific context at session start"
+    enabled: false
+    priority: 10
+    severity: audit
+    hook_events: [SessionStart]
+    check:
+      type: skill_inject
+      params:
+        context: |
+          You are operating under ACME Corp development standards.
+          Always use structured logging with slog.
+          Always write table-driven tests.
+        context_file: ".claude/company-context.md"
+
+  # ── Prompt Modification ────────────────────────────────────────
+  - id: prompt-safety
+    name: "Safety Reminder"
+    description: "Add safety reminders to all user prompts"
+    enabled: true
+    priority: 5
+    severity: audit
+    hook_events: [UserPromptSubmit]
+    check:
+      type: prompt_modify
+      params:
+        system_context: |
+          IMPORTANT: Never commit secrets to code.
+          Never run destructive commands without confirmation.
+          Always run tests after code changes.
+
+  # ── Secret Detection (Write/Edit) ─────────────────────────────
+  - id: secret-write
+    name: "Secret Detection"
+    description: "Scan file content for secrets before writing"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Write, Edit]
+    check:
+      type: secret_detect
+      params:
+        scan_field: content
+        patterns:
+          - name: "AWS Access Key"
+            regex: "AKIA[0-9A-Z]{16}"
+          - name: "AWS Secret Key"
+            regex: "(?i)aws_secret_access_key\\s*=\\s*[A-Za-z0-9/+=]{40}"
+          - name: "GitHub Token"
+            regex: "gh[ps]_[A-Za-z0-9_]{36,}"
+          - name: "Private Key"
+            regex: "-----BEGIN (RSA|EC|DSA|OPENSSH) PRIVATE KEY-----"
+          - name: "Generic API Key"
+            regex: "(?i)(api[_-]?key|secret[_-]?key)\\s*[:=]\\s*['\"]?[A-Za-z0-9_\\-]{20,}"
+          - name: "JWT Token"
+            regex: "eyJ[A-Za-z0-9_-]{10,}\\.eyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_\\-]+"
+        allow_patterns:
+          - "AKIAIOSFODNN7EXAMPLE"
+          - "(?i)test|example|dummy|placeholder"
+
+  # ── Block Reading Secret Files ─────────────────────────────────
+  - id: secret-read
+    name: "Block Secret Files"
+    description: "Prevent reading known secret/credential files"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Read]
+    check:
+      type: dir_acl
+      params:
+        mode: denylist
+        path_field: file_path
+        patterns:
+          - "**/.env"
+          - "**/.env.*"
+          - "**/credentials.json"
+          - "**/service-account*.json"
+          - "**/*.pem"
+          - "**/*.key"
+
+  # ── Directory Access Control ───────────────────────────────────
+  - id: dir-acl
+    name: "Directory ACL"
+    description: "Restrict agent access to sensitive system directories"
+    enabled: true
+    priority: 2
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Read, Write, Edit, Glob, Grep]
+    check:
+      type: dir_acl
+      params:
+        mode: denylist
+        path_field: auto
+        patterns:
+          - "/etc/**"
+          - "/var/**"
+          - "~/.ssh/**"
+          - "~/.aws/**"
+          - "~/.config/gcloud/**"
+          - "../**"
+        allow_within_project: true
+
+  # ── Bash Command Validation ────────────────────────────────────
+  - id: cmd-validate
+    name: "Command Validation"
+    description: "Block dangerous bash commands"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Bash]
+    check:
+      type: cmd_validate
+      params:
+        deny_patterns:
+          - name: "Root deletion"
+            regex: "rm\\s+-rf\\s+/"
+          - name: "Fork bomb"
+            regex: ":\\(\\)\\{\\s*:\\|:&\\s*\\};:"
+          - name: "World-writable permissions"
+            regex: "chmod\\s+777"
+          - name: "Pipe to shell"
+            regex: "curl.*\\|\\s*(bash|sh|zsh)"
+          - name: "Wget pipe to shell"
+            regex: "wget.*\\|\\s*(bash|sh|zsh)"
+          - name: "Force push"
+            regex: "\\bgit\\s+push\\s+.*--force"
+          - name: "Hard reset"
+            regex: "\\bgit\\s+reset\\s+--hard"
+          - name: "Drop database"
+            regex: "\\bdrop\\s+database\\b"
+            case_insensitive: true
+        allow_patterns:
+          - name: "Package management"
+            regex: "sudo\\s+(apt|yum|dnf|brew)"
+
+  # ── Go Linter ──────────────────────────────────────────────────
+  - id: lint-go
+    name: "Go Linter"
+    description: "Run golangci-lint after Go file writes"
+    enabled: false  # Enable if you have golangci-lint installed
+    priority: 10
+    severity: warn
+    hook_events: [PostToolUse]
+    tool_match: [Write, Edit]
+    check:
+      type: linter
+      params:
+        file_extensions: [".go"]
+        command: "golangci-lint run --timeout=30s {file}"
+        working_dir: project
+        timeout: 30000
+
+  # ── CEL Rules (Advanced) ───────────────────────────────────────
+  - id: no-main-push
+    name: "Block main branch push"
+    description: "Prevent git push to main/master branches"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Bash]
+    check:
+      type: cel
+      params:
+        expression: >
+          tool_input.command.contains("git push") &&
+          (tool_input.command.contains("main") || tool_input.command.contains("master"))
