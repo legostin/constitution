@@ -155,7 +155,7 @@ pip3 install detect-secrets
 # Проверить
 detect-secrets --version
 ```
-Без detect-secrets правила `secret_yelp` пропускаются. Встроенные `secret_regex` работают всегда.
+Без detect-secrets правила `secret_yelp` с severity `block` будут блокировать все действия (fail-closed). Установите утилиту или отключите правило. Встроенные `secret_regex` работают всегда.
 
 ---
 

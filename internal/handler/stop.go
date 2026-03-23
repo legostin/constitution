@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/legostin/constitution/internal/check"
@@ -29,16 +30,25 @@ func (h *Stop) Handle(ctx context.Context, input *types.HookInput, rules []types
 		c, err := h.registry.Get(rule.Check.Type)
 		if err != nil {
 			slog.Warn("unknown check type", "type", rule.Check.Type, "rule", rule.ID)
+			if rule.Severity == types.SeverityBlock {
+				return hook.BuildStopBlockOutput(fmt.Sprintf("Check %q unavailable: %v", rule.Check.Type, err)), 0
+			}
 			continue
 		}
 		if err := c.Init(rule.Check.Params); err != nil {
 			slog.Error("check init failed", "rule", rule.ID, "error", err)
+			if rule.Severity == types.SeverityBlock {
+				return hook.BuildStopBlockOutput(fmt.Sprintf("Check %q init failed: %v", rule.ID, err)), 0
+			}
 			continue
 		}
 
 		result, err := c.Execute(ctx, input)
 		if err != nil {
 			slog.Error("check execution failed", "rule", rule.ID, "error", err)
+			if rule.Severity == types.SeverityBlock {
+				return hook.BuildStopBlockOutput(fmt.Sprintf("Check %q failed: %v", rule.ID, err)), 0
+			}
 			continue
 		}
 

@@ -34,16 +34,25 @@ func (h *PostToolUse) Handle(ctx context.Context, input *types.HookInput, rules 
 		c, err := h.registry.Get(rule.Check.Type)
 		if err != nil {
 			slog.Warn("unknown check type", "type", rule.Check.Type, "rule", rule.ID)
+			if rule.Severity == types.SeverityBlock {
+				messages = append(messages, fmt.Sprintf("[%s] check %q unavailable: %v", rule.Name, rule.Check.Type, err))
+			}
 			continue
 		}
 		if err := c.Init(rule.Check.Params); err != nil {
 			slog.Error("check init failed", "rule", rule.ID, "error", err)
+			if rule.Severity == types.SeverityBlock {
+				messages = append(messages, fmt.Sprintf("[%s] check init failed: %v", rule.Name, err))
+			}
 			continue
 		}
 
 		result, err := c.Execute(ctx, input)
 		if err != nil {
 			slog.Error("check execution failed", "rule", rule.ID, "error", err)
+			if rule.Severity == types.SeverityBlock {
+				messages = append(messages, fmt.Sprintf("[%s] check failed: %v", rule.Name, err))
+			}
 			continue
 		}
 
