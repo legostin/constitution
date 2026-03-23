@@ -16,7 +16,7 @@ Claude Code hooks ──► constitution (Go binary)
                           │
                           └── POST ──► constitutiond (remote service)
                                         ├── Stateful проверки
-                                        ├── Аудит лог (SQLite)
+                                        ├── Аудит лог (slog → stdout)
                                         └── Централизованный конфиг
 ```
 
@@ -27,80 +27,86 @@ Claude Code hooks ──► constitution (Go binary)
 ### Установка
 
 ```bash
-# Из исходников
-git clone https://github.com/legostin/constitution.git
-cd constitution
-make build
-
-# Или через go install
 go install github.com/legostin/constitution/cmd/constitution@latest
+```
+
+### Сценарий 1: Локальные правила
+
+```bash
+constitution init                 # Создать .constitution.yaml из шаблона
+constitution setup                # Интерактивно установить хуки в Claude Code
+```
+
+### Сценарий 2: Подключение к серверу компании
+
+```bash
+constitution setup --remote https://constitution.company.com
+# → Создаёт .constitution.yaml с remote URL + ставит хуки
+```
+
+### Сценарий 3: Конфиг уже в репозитории
+
+Если `.constitution.yaml` уже лежит в репе (Platform-команда добавила):
+
+```bash
+constitution setup                # Находит конфиг, ставит хуки
+```
+
+## CLI
+
+```
+constitution                      # Hook handler (stdin/stdout) — вызывается Claude Code
+constitution init                 # Создать .constitution.yaml
+constitution init --template minimal
+constitution init --remote URL    # Создать remote-only конфиг
+constitution setup                # Интерактивная установка хуков
+constitution setup --remote URL   # Быстрая настройка remote + хуки
+constitution setup --scope user   # Установить в ~/.claude/settings.json
+constitution validate             # Проверить конфиг
+constitution uninstall            # Удалить хуки из settings.json
+constitution version
+```
+
+## Деплой сервера (для компаний)
+
+Platform-команда поднимает `constitutiond` с правилами компании. Разработчики подключаются через `constitution setup --remote URL`.
+
+### Docker Compose
+
+```yaml
+# docker-compose.yaml
+services:
+  constitutiond:
+    image: ghcr.io/legostin/constitutiond:latest
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./company-rules.yaml:/etc/constitution/config.yaml:ro
+    environment:
+      - CONSTITUTION_TOKEN=${CONSTITUTION_TOKEN}
+```
+
+```bash
+docker compose up -d
+```
+
+### Из исходников
+
+```bash
 go install github.com/legostin/constitution/cmd/constitutiond@latest
+constitutiond --config rules.yaml --addr :8081
 ```
 
-### Конфигурация Claude Code
+### Управление правилами
 
-Добавьте хуки в `.claude/settings.json` вашего проекта (или в `~/.claude/settings.json` глобально):
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [{ "type": "command", "command": "constitution", "timeout": 5 }]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": "",
-        "hooks": [{ "type": "command", "command": "constitution", "timeout": 5 }]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [{ "type": "command", "command": "constitution", "timeout": 5 }]
-      },
-      {
-        "matcher": "Read|Write|Edit",
-        "hooks": [{ "type": "command", "command": "constitution", "timeout": 5 }]
-      },
-      {
-        "matcher": "Glob|Grep",
-        "hooks": [{ "type": "command", "command": "constitution", "timeout": 3 }]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [{ "type": "command", "command": "constitution", "timeout": 60 }]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [{ "type": "command", "command": "constitution", "timeout": 5 }]
-      }
-    ]
-  }
-}
+```
+company-constitution/              ← Git-репо Platform-команды
+├── company-rules.yaml             ← правила
+├── docker-compose.yaml            ← деплой
+└── .github/workflows/deploy.yaml  ← CI: push → redeploy
 ```
 
-### Создание конфига
-
-Скопируйте стартовый конфиг в корень проекта:
-
-```bash
-cp configs/minimal.yaml .constitution.yaml
-```
-
-Или полную версию со всеми проверками:
-
-```bash
-cp configs/constitution.yaml .constitution.yaml
-```
-
-Бинарник `constitution` должен быть в `$PATH`. Он автоматически найдёт конфиг.
+Platform-команда правит YAML, пушит, CI обновляет контейнер. Разработчики ничего не делают.
 
 ## Конфигурация
 
@@ -450,7 +456,6 @@ Exit-коды: `0` = passed, `2` = blocked, другие = ошибка.
 constitutiond \
   --config constitution.yaml \
   --addr :8081 \
-  --db constitution.db \
   --token "your-secret-token"
 ```
 
@@ -458,7 +463,7 @@ constitutiond \
 
 ```
 POST /api/v1/evaluate    — Выполнить правила для hook input
-POST /api/v1/audit       — Записать аудит-лог
+POST /api/v1/audit       — Записать аудит-лог (→ slog structured logging)
 GET  /api/v1/config      — Получить текущий конфиг
 GET  /api/v1/health      — Проверка здоровья
 ```
@@ -575,35 +580,37 @@ rules:
 ## Разработка
 
 ```bash
-make build        # Собрать бинарники в bin/
-make test         # Запустить тесты с race detector
-make test-v       # Тесты с подробным выводом
-make lint         # go vet
-make smoke-test   # Проверить блокировку rm -rf /
-make run-server   # Запустить constitutiond локально
-make fmt          # gofmt
-make tidy         # go mod tidy
+make build          # Собрать бинарники в bin/
+make install        # Установить глобально (go install)
+make test           # Тесты с race detector
+make lint           # go vet
+make smoke-test     # Проверить блокировку rm -rf /
+make run-server     # Запустить constitutiond локально
+make docker-build   # Собрать Docker-образ
+make docker-run     # Запустить через docker compose
 ```
 
 ### Структура проекта
 
 ```
 cmd/
-  constitution/       Локальный hook handler
+  constitution/       CLI + hook handler (init, setup, validate, ...)
+    configs/          Embedded шаблоны конфигов (go:embed)
   constitutiond/      Remote-сервис
 internal/
   celenv/             CEL environment (переменные + функции)
-  check/              8 типов проверок
+  check/              9 типов проверок
   config/             Загрузка и валидация YAML
   engine/             Оркестрация правил
   handler/            Обработчики событий (PreToolUse, Stop, ...)
   hook/               JSON I/O + диспатчер
   plugin/             Exec + HTTP плагины
   remote/             HTTP-клиент к constitutiond
-  server/             HTTP-сервер + middleware + SQLite store
+  server/             HTTP-сервер + middleware (stateless)
 pkg/types/            Shared-типы (HookInput, HookOutput, Rule, ...)
-configs/              Примеры конфигураций
-scripts/              Install-скрипт
+configs/              Примеры конфигураций (standalone)
+Dockerfile            Multi-stage build
+docker-compose.yaml   Деплой сервера
 ```
 
 ### Написание кастомного плагина

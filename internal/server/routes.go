@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/legostin/constitution/internal/server/store"
 	"github.com/legostin/constitution/pkg/types"
 )
 
@@ -44,7 +43,6 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build rule ID set for fast lookup
 	ruleIDSet := make(map[string]bool)
 	for _, id := range req.RuleIDs {
 		ruleIDSet[id] = true
@@ -56,10 +54,7 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 	var results []EvaluateResult
 
 	for _, rule := range s.policy.Rules {
-		if !ruleIDSet[rule.ID] {
-			continue
-		}
-		if !rule.Enabled {
+		if !ruleIDSet[rule.ID] || !rule.Enabled {
 			continue
 		}
 
@@ -87,16 +82,14 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 		}
 		results = append(results, evalResult)
 
-		// Audit log
-		s.store.SaveAudit(store.AuditEntry{
-			SessionID: req.Input.SessionID,
-			Event:     req.Input.HookEventName,
-			RuleID:    rule.ID,
-			Passed:    result.Passed,
-			Message:   result.Message,
-			Severity:  string(rule.Severity),
-			Timestamp: time.Now(),
-		})
+		slog.Info("audit",
+			"session_id", req.Input.SessionID,
+			"event", req.Input.HookEventName,
+			"rule_id", rule.ID,
+			"passed", result.Passed,
+			"message", result.Message,
+			"severity", rule.Severity,
+		)
 	}
 
 	resp := EvaluateResponse{Results: results}
@@ -120,15 +113,15 @@ func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, result := range req.Results {
-		s.store.SaveAudit(store.AuditEntry{
-			SessionID: req.SessionID,
-			Event:     req.Event,
-			RuleID:    result.RuleID,
-			Passed:    result.Passed,
-			Message:   result.Message,
-			Severity:  string(result.Severity),
-			Timestamp: req.Timestamp,
-		})
+		slog.Info("audit",
+			"session_id", req.SessionID,
+			"event", req.Event,
+			"rule_id", result.RuleID,
+			"passed", result.Passed,
+			"message", result.Message,
+			"severity", result.Severity,
+			"timestamp", req.Timestamp,
+		)
 	}
 
 	w.WriteHeader(http.StatusNoContent)

@@ -1,0 +1,11 @@
+version: "1"
+name: "remote-client"
+
+remote:
+  enabled: true
+  url: "{{REMOTE_URL}}"
+  auth_token_env: "CONSTITUTION_TOKEN"
+  timeout: 5000
+  fallback: "local-only"
+
+rules: []

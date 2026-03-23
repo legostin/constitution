@@ -1,0 +1,33 @@
+version: "1"
+name: "minimal-constitution"
+
+rules:
+  - id: secret-write
+    name: "Secret Detection"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Write, Edit]
+    check:
+      type: secret_regex
+      params:
+        scan_field: content
+        patterns:
+          - { name: "AWS Key", regex: "AKIA[0-9A-Z]{16}" }
+          - { name: "GitHub Token", regex: "gh[ps]_[A-Za-z0-9_]{36,}" }
+          - { name: "Private Key", regex: "-----BEGIN .* PRIVATE KEY-----" }
+
+  - id: cmd-validate
+    name: "Command Validation"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Bash]
+    check:
+      type: cmd_validate
+      params:
+        deny_patterns:
+          - { name: "Root deletion", regex: "rm\\s+-rf\\s+/" }
+          - { name: "Force push", regex: "\\bgit\\s+push\\s+.*--force" }

@@ -1,8 +1,10 @@
 .PHONY: build test lint clean install
 
+VERSION ?= dev
+
 # Build both binaries
 build:
-	go build -o bin/constitution ./cmd/constitution
+	go build -ldflags="-X main.version=$(VERSION)" -o bin/constitution ./cmd/constitution
 	go build -o bin/constitutiond ./cmd/constitutiond
 
 # Run all tests
@@ -21,12 +23,12 @@ lint:
 clean:
 	rm -rf bin/
 
-# Install binaries to $GOPATH/bin
+# Install globally
 install:
-	go install ./cmd/constitution
+	go install -ldflags="-X main.version=$(VERSION)" ./cmd/constitution
 	go install ./cmd/constitutiond
 
-# Quick smoke test: pipe a PreToolUse event through the binary
+# Quick smoke test
 smoke-test: build
 	echo '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"'$(PWD)'"}' | \
 		CONSTITUTION_CONFIG=configs/constitution.yaml ./bin/constitution; \
@@ -35,6 +37,14 @@ smoke-test: build
 # Run the remote service locally
 run-server: build
 	./bin/constitutiond --config configs/constitution.yaml --addr :8081
+
+# Docker build
+docker-build:
+	docker build -t constitutiond .
+
+# Docker run with local rules file
+docker-run:
+	docker compose up -d
 
 # Format code
 fmt:

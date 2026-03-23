@@ -1,0 +1,10 @@
+services:
+  constitutiond:
+    build: .
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./rules.yaml:/etc/constitution/config.yaml:ro
+    environment:
+      - CONSTITUTION_TOKEN=${CONSTITUTION_TOKEN:-}
+    restart: unless-stopped
