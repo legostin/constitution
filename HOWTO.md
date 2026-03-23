@@ -28,6 +28,36 @@ constitution validate
 # 5. Перезапустить Claude Code
 ```
 
+### Установка на все проекты (глобально)
+
+Чтобы constitution работал для любого проекта на машине, а не только для текущего:
+
+```bash
+# 1. Хуки — в user-level settings (действуют на все проекты)
+constitution setup --scope user
+
+# 2. Конфиг — в домашнюю директорию
+constitution init --output ~/.config/constitution/constitution.yaml
+```
+
+Приоритет конфигов: проектный `.constitution.yaml` перекрывает глобальный. Это значит:
+- Глобальный конфиг задаёт базовые правила для всех проектов
+- Проект может положить свой `.constitution.yaml` с дополнительными или другими правилами
+
+```
+~/.config/constitution/constitution.yaml   ← базовые правила (все проекты)
+~/work/project-a/.constitution.yaml        ← перекрывает для этого проекта
+~/work/project-b/                          ← нет своего, используется глобальный
+```
+
+Для проверки какой конфиг используется:
+```bash
+cd ~/work/project-b
+constitution validate
+# ✓ /Users/you/.config/constitution/constitution.yaml
+#   10 rules (7 enabled)
+```
+
 ### Подключение к серверу компании
 
 Если Platform-команда уже подняла сервер:
