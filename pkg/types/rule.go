@@ -1,5 +1,32 @@
 package types
 
+// ConfigLevel represents the authority tier a config came from.
+// Lower numeric value = higher authority.
+type ConfigLevel int
+
+const (
+	LevelGlobal     ConfigLevel = 0 // Highest authority — cannot be overridden
+	LevelEnterprise ConfigLevel = 1 // Organization/enterprise admin
+	LevelUser       ConfigLevel = 2 // Personal user config
+	LevelProject    ConfigLevel = 3 // Project-local config (lowest authority)
+)
+
+// String returns a human-readable name for the config level.
+func (l ConfigLevel) String() string {
+	switch l {
+	case LevelGlobal:
+		return "global"
+	case LevelEnterprise:
+		return "enterprise"
+	case LevelUser:
+		return "user"
+	case LevelProject:
+		return "project"
+	default:
+		return "unknown"
+	}
+}
+
 // Severity controls what happens when a rule matches.
 type Severity string
 
@@ -8,6 +35,21 @@ const (
 	SeverityWarn  Severity = "warn"  // Allow but add system message warning
 	SeverityAudit Severity = "audit" // Allow silently, log for audit
 )
+
+// SeverityRank returns a numeric rank for severity comparison.
+// Higher rank = stricter. Used by merge logic to detect weakening attempts.
+func SeverityRank(s Severity) int {
+	switch s {
+	case SeverityAudit:
+		return 0
+	case SeverityWarn:
+		return 1
+	case SeverityBlock:
+		return 2
+	default:
+		return -1
+	}
+}
 
 // Rule is a single check configuration loaded from YAML.
 type Rule struct {
@@ -22,6 +64,8 @@ type Rule struct {
 	Check       CheckConfig `yaml:"check" json:"check"`
 	Remote      bool        `yaml:"remote,omitempty" json:"remote,omitempty"`
 	Message     string      `yaml:"message,omitempty" json:"message,omitempty"`
+	Source      ConfigLevel `yaml:"-" json:"source,omitempty"`      // Set during merge, not from YAML
+	SourceFile  string      `yaml:"-" json:"source_file,omitempty"` // Set during merge, not from YAML
 }
 
 // CheckConfig defines which check to run and its parameters.

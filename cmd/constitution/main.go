@@ -93,17 +93,33 @@ func runHookHandler() {
 	if cwd == "" {
 		cwd, _ = os.Getwd()
 	}
-	cfgPath := config.FindConfigPath(configPath, cwd)
-	if cfgPath == "" {
+
+	sources := config.DiscoverConfigSources(configPath, cwd)
+	if len(sources) == 0 {
 		os.Exit(0)
 	}
 
-	policy, err := config.Load(cfgPath)
-	if err != nil {
-		slog.Error("constitution: failed to load config", "error", err, "path", cfgPath)
+	layers, errs := config.LoadAll(sources)
+	for _, err := range errs {
+		slog.Warn("constitution: config load error", "error", err)
+	}
+	if len(layers) == 0 {
+		slog.Error("constitution: no valid configs loaded")
 		os.Exit(0)
 	}
 
+	merged := config.MergePolicies(layers)
+	for _, c := range merged.Conflicts {
+		slog.Warn("constitution: config merge conflict",
+			"rule", c.RuleID,
+			"field", c.Field,
+			"higher_level", c.HigherLevel.String(),
+			"lower_level", c.LowerLevel.String(),
+			"action", c.Action,
+		)
+	}
+
+	policy := merged.Policy
 	setupLogging(policy)
 
 	eng := engine.New(policy)

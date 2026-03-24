@@ -8,6 +8,44 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ConfigSource represents one discovered config file and its authority level.
+type ConfigSource struct {
+	Path  string
+	Level types.ConfigLevel
+}
+
+// LayeredPolicy is a policy loaded from a specific config level.
+type LayeredPolicy struct {
+	Policy *types.Policy
+	Level  types.ConfigLevel
+	Path   string
+}
+
+// LoadAll loads policies from all discovered config sources.
+// Each policy's rules are stamped with their source level and file path.
+func LoadAll(sources []ConfigSource) ([]LayeredPolicy, []error) {
+	var policies []LayeredPolicy
+	var errs []error
+
+	for _, src := range sources {
+		policy, err := Load(src.Path)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("level %s (%s): %w", src.Level, src.Path, err))
+			continue
+		}
+		for i := range policy.Rules {
+			policy.Rules[i].Source = src.Level
+			policy.Rules[i].SourceFile = src.Path
+		}
+		policies = append(policies, LayeredPolicy{
+			Policy: policy,
+			Level:  src.Level,
+			Path:   src.Path,
+		})
+	}
+	return policies, errs
+}
+
 // Load reads and parses a YAML policy file from the given path.
 func Load(path string) (*types.Policy, error) {
 	data, err := os.ReadFile(path)

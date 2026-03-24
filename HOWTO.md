@@ -40,22 +40,31 @@ constitution setup --scope user
 constitution init --output ~/.config/constitution/constitution.yaml
 ```
 
-Приоритет конфигов: проектный `.constitution.yaml` перекрывает глобальный. Это значит:
-- Глобальный конфиг задаёт базовые правила для всех проектов
-- Проект может положить свой `.constitution.yaml` с дополнительными или другими правилами
+Конфиги работают по принципу конституционной иерархии — **чем глобальнее уровень, тем выше авторитет**:
+
+| Уровень | Источник | Авторитет |
+|---------|----------|-----------|
+| Global | `/etc/constitution/global.yaml` или `$CONSTITUTION_GLOBAL_CONFIG` | Высший |
+| Enterprise | `$CONSTITUTION_ENTERPRISE_CONFIG` | Высокий |
+| User | `~/.config/constitution/constitution.yaml` | Средний |
+| Project | `{cwd}/.constitution.yaml` | Низший |
+
+Все уровни загружаются и мержатся. Нижний уровень **может добавить** свои правила и **усилить** существующие (warn→block), но **не может ослабить** или **отключить** правила вышестоящего уровня.
 
 ```
-~/.config/constitution/constitution.yaml   ← базовые правила (все проекты)
-~/work/project-a/.constitution.yaml        ← перекрывает для этого проекта
-~/work/project-b/                          ← нет своего, используется глобальный
+~/.config/constitution/constitution.yaml   ← правила пользователя (все проекты)
+~/work/project-a/.constitution.yaml        ← доп. правила проекта (не могут ослабить user)
+~/work/project-b/                          ← нет своего, используется user
 ```
 
-Для проверки какой конфиг используется:
+Для проверки всех источников и конфликтов:
 ```bash
-cd ~/work/project-b
+cd ~/work/project-a
 constitution validate
-# ✓ /Users/you/.config/constitution/constitution.yaml
-#   10 rules (7 enabled)
+#   Config sources:
+#     [user] /Users/you/.config/constitution/constitution.yaml
+#     [project] /Users/you/work/project-a/.constitution.yaml
+#   ✓ Merged: 12 rules (9 enabled) from 2 sources
 ```
 
 ### Подключение к серверу компании
