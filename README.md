@@ -250,7 +250,7 @@ check:
 - `*` — любое имя файла
 - `~` — домашняя директория пользователя
 
-**`path_field: auto`** — автоматически определяет поле пути: `file_path` (Read/Write/Edit) → `path` (Glob/Grep) → `pattern`.
+**`path_field: auto`** — автоматически пробует поля `file_path` → `path` → `pattern` и использует первое найденное.
 
 ### `repo_access` — Контроль репозиториев
 
@@ -355,10 +355,10 @@ check:
     # Путь к бинарнику (опционально)
     binary: "detect-secrets"
     # Режим сканирования
-    scan_mode: "line"         # "line" (по умолчанию) | "content"
+
 ```
 
-**Как работает**: извлекает контент из `tool_input`, сканирует каждую строку через `detect-secrets scan --string`. Конфиг plugins/filters из YAML динамически генерируется в JSON baseline файл. Если `detect-secrets` не установлен — check пропускается с warning.
+**Как работает**: извлекает контент из `tool_input`, сканирует каждую строку через `detect-secrets scan --string` (построчное сканирование надёжнее файлового, т.к. detect-secrets применяет агрессивные фильтры при сканировании файлов). Конфиг plugins/filters из YAML динамически генерируется в JSON baseline файл. Если `detect-secrets` не установлен — `Init()` вернёт ошибку; при `severity: block` действие будет заблокировано (fail-closed).
 
 **Доступные плагины** (28+): `AWSKeyDetector`, `ArtifactoryDetector`, `AzureStorageKeyDetector`, `Base64HighEntropyString`, `BasicAuthDetector`, `CloudantDetector`, `DiscordBotTokenDetector`, `GitHubTokenDetector`, `GitLabTokenDetector`, `HexHighEntropyString`, `IbmCloudIamDetector`, `JwtTokenDetector`, `KeywordDetector`, `MailchimpDetector`, `NpmDetector`, `OpenAIDetector`, `PrivateKeyDetector`, `SendGridDetector`, `SlackDetector`, `StripeDetector`, `TelegramBotTokenDetector`, `TwilioKeyDetector` и др.
 
@@ -414,37 +414,9 @@ check:
 
 Если указаны оба — `context_file` имеет приоритет. Если файл не найден — fallback на `context`.
 
-### `plugin` — Внешние плагины
+### `plugin` — Внешние плагины (planned)
 
-Делегирует проверку внешнему бинарнику или HTTP-эндпоинту.
-
-```yaml
-plugins:
-  - name: "compliance-check"
-    type: exec
-    path: "/usr/local/bin/compliance-check"
-    timeout: 3000
-
-rules:
-  - id: compliance
-    # ...
-    check:
-      type: plugin
-      params:
-        plugin_name: "compliance-check"
-```
-
-**Exec-плагин** получает JSON на stdin:
-```json
-{ "input": { "hook_event_name": "...", "tool_input": {...} }, "params": {...} }
-```
-
-Возвращает JSON на stdout:
-```json
-{ "passed": true, "message": "OK" }
-```
-
-Exit-коды: `0` = passed, `2` = blocked, другие = ошибка.
+> **Примечание**: система плагинов находится в разработке. Инфраструктура (exec/http) реализована, но check type `plugin` пока не зарегистрирован в движке. Секция `plugins` в конфигурации парсится, но правила с `type: plugin` пока не поддерживаются.
 
 ## Remote-сервис (constitutiond)
 

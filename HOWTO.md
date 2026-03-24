@@ -588,6 +588,8 @@ echo '{
 
 ### Регистрация в конфиге
 
+> **Примечание**: check type `plugin` находится в разработке. Инфраструктура плагинов (exec/http) реализована, но интеграция с движком правил пока не завершена. Секция `plugins` в конфиге парсится, но правила с `type: plugin` пока не поддерживаются.
+
 ```yaml
 plugins:
   - name: "no-todos"
@@ -595,23 +597,6 @@ plugins:
     path: "/usr/local/bin/no-todos.sh"
     timeout: 3000
 
-rules:
-  - id: no-todos
-    name: "No TODO markers"
-    enabled: true
-    priority: 5
-    severity: warn        # warn = разрешить, но предупредить
-    hook_events: [PreToolUse]
-    tool_match: [Write, Edit]
-    check:
-      type: plugin
-      params:
-        plugin_name: "no-todos"
-```
-
-HTTP-плагин работает аналогично, но вместо exec вызывает HTTP endpoint:
-```yaml
-plugins:
   - name: "compliance-api"
     type: http
     url: "https://compliance.internal/api/check"

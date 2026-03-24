@@ -105,7 +105,10 @@ func quickRemoteSetup(remoteURL string) {
 	// 1. Create remote config if no config exists
 	if _, err := os.Stat(".constitution.yaml"); os.IsNotExist(err) {
 		content := strings.ReplaceAll(remoteConfigTemplate, "{{REMOTE_URL}}", remoteURL)
-		os.WriteFile(".constitution.yaml", []byte(content), 0o644)
+		if err := os.WriteFile(".constitution.yaml", []byte(content), 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "  Error writing .constitution.yaml: %v\n", err)
+			return
+		}
 		fmt.Fprintf(os.Stderr, "  \033[32m✓\033[0m .constitution.yaml created (remote: %s)\n", remoteURL)
 	}
 
@@ -170,7 +173,10 @@ func applyHooks(settingsFile string, hooks map[string]interface{}) {
 	os.MkdirAll(filepath.Dir(settingsFile), 0o755)
 	existing := make(map[string]interface{})
 	if data, err := os.ReadFile(settingsFile); err == nil {
-		json.Unmarshal(data, &existing)
+		if err := json.Unmarshal(data, &existing); err != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: failed to parse %s: %v\n", settingsFile, err)
+			return
+		}
 	}
 
 	// Remove existing constitution hooks, then add new ones
@@ -243,7 +249,10 @@ func cmdUninstall(args []string) {
 	}
 
 	var settings map[string]interface{}
-	json.Unmarshal(data, &settings)
+	if err := json.Unmarshal(data, &settings); err != nil {
+		fmt.Fprintf(os.Stderr, "  Error parsing %s: %v\n", settingsFile, err)
+		return
+	}
 
 	hooks, ok := settings["hooks"].(map[string]interface{})
 	if !ok {

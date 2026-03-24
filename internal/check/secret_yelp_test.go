@@ -128,7 +128,7 @@ func TestDetectSecrets_ScanLine_AWSKey(t *testing.T) {
 		"plugins": []interface{}{
 			map[string]interface{}{"name": "AWSKeyDetector"},
 		},
-		"scan_mode": "line",
+
 	})
 	if err != nil {
 		t.Fatalf("Init error: %v", err)
@@ -154,15 +154,13 @@ func TestDetectSecrets_ScanLine_AWSKey(t *testing.T) {
 	}
 }
 
-func TestDetectSecrets_ScanContent_AWSKey(t *testing.T) {
+func TestDetectSecrets_MultilineContent_AWSKey(t *testing.T) {
 	if !detectSecretsAvailable() {
 		t.Skip("detect-secrets not in PATH")
 	}
 
 	d := &DetectSecrets{}
-	err := d.Init(map[string]interface{}{
-		"scan_mode": "content",
-	})
+	err := d.Init(map[string]interface{}{})
 	if err != nil {
 		t.Fatalf("Init error: %v", err)
 	}
@@ -180,7 +178,7 @@ func TestDetectSecrets_ScanContent_AWSKey(t *testing.T) {
 		t.Fatalf("Execute error: %v", err)
 	}
 	if result.Passed {
-		t.Error("expected check to fail for AWS key in content mode")
+		t.Error("expected check to fail for AWS key in multiline content")
 	}
 }
 
@@ -191,7 +189,7 @@ func TestDetectSecrets_CleanContent(t *testing.T) {
 
 	d := &DetectSecrets{}
 	err := d.Init(map[string]interface{}{
-		"scan_mode": "line",
+
 	})
 	if err != nil {
 		t.Fatalf("Init error: %v", err)
@@ -221,7 +219,6 @@ func TestDetectSecrets_ExcludeLines(t *testing.T) {
 
 	d := &DetectSecrets{}
 	err := d.Init(map[string]interface{}{
-		"scan_mode":     "line",
 		"exclude_lines": []interface{}{"pragma: allowlist"},
 	})
 	if err != nil {

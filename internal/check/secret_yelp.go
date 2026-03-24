@@ -22,7 +22,6 @@ import (
 type DetectSecrets struct {
 	binary         string
 	scanField      string
-	scanMode       string // "line" | "content"
 	baselinePath   string
 	excludeSecrets []string
 	excludeLines   []string
@@ -47,12 +46,6 @@ func (d *DetectSecrets) Init(params map[string]interface{}) error {
 	d.scanField = "content"
 	if sf, ok := params["scan_field"].(string); ok && sf != "" {
 		d.scanField = sf
-	}
-
-	// Scan mode
-	d.scanMode = "content"
-	if sm, ok := params["scan_mode"].(string); ok && sm != "" {
-		d.scanMode = sm
 	}
 
 	// Timeout
@@ -98,14 +91,7 @@ func (d *DetectSecrets) Execute(ctx context.Context, input *types.HookInput) (*t
 		return &types.CheckResult{Passed: true}, nil
 	}
 
-	switch d.scanMode {
-	case "content":
-		// Scan each non-empty line — detect-secrets file scan applies
-		// aggressive filters that miss some secrets, so --string is more reliable
-		return d.scanLines(ctx, content)
-	default:
-		return d.scanLines(ctx, content)
-	}
+	return d.scanLines(ctx, content)
 }
 
 // scanLines scans each line individually with `detect-secrets scan --string`.
@@ -137,77 +123,6 @@ func (d *DetectSecrets) scanLines(ctx context.Context, content string) (*types.C
 			}, nil
 		}
 	}
-	return &types.CheckResult{Passed: true, Message: "no secrets detected (detect-secrets)"}, nil
-}
-
-// scanContent writes content to a temp file and scans it with `detect-secrets scan`.
-func (d *DetectSecrets) scanContent(ctx context.Context, content string) (*types.CheckResult, error) {
-	// Use .py extension — detect-secrets skips certain file types
-	tmpFile, err := os.CreateTemp("", "constitution-scan-*.py")
-	if err != nil {
-		return &types.CheckResult{Passed: true}, nil
-	}
-	defer os.Remove(tmpFile.Name())
-
-	if _, err := tmpFile.WriteString(content); err != nil {
-		tmpFile.Close()
-		return &types.CheckResult{Passed: true}, nil
-	}
-	tmpFile.Close()
-
-	ctx, cancel := context.WithTimeout(ctx, d.timeout)
-	defer cancel()
-
-	args := []string{"scan", tmpFile.Name()}
-	if d.baselinePath != "" {
-		args = append(args, "--baseline", d.baselinePath)
-	}
-	for _, es := range d.excludeSecrets {
-		args = append(args, "--exclude-secrets", es)
-	}
-	for _, el := range d.excludeLines {
-		args = append(args, "--exclude-lines", el)
-	}
-
-	cmd := exec.CommandContext(ctx, d.binary, args...)
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = nil
-
-	if err := cmd.Run(); err != nil {
-		return &types.CheckResult{Passed: true}, nil
-	}
-
-	// Parse baseline JSON output
-	var baseline struct {
-		Results map[string][]struct {
-			Type       string `json:"type"`
-			LineNumber int    `json:"line_number"`
-		} `json:"results"`
-	}
-	if err := json.Unmarshal(stdout.Bytes(), &baseline); err != nil {
-		return &types.CheckResult{Passed: true}, nil
-	}
-
-	// Collect all detections
-	var detections []string
-	for _, secrets := range baseline.Results {
-		for _, s := range secrets {
-			detections = append(detections, fmt.Sprintf("%s (line %d)", s.Type, s.LineNumber))
-		}
-	}
-
-	if len(detections) > 0 {
-		return &types.CheckResult{
-			Passed:  false,
-			Message: fmt.Sprintf("Secrets detected: %s", strings.Join(detections, "; ")),
-			Details: map[string]string{
-				"detections": strings.Join(detections, "; "),
-				"count":      fmt.Sprintf("%d", len(detections)),
-			},
-		}, nil
-	}
-
 	return &types.CheckResult{Passed: true, Message: "no secrets detected (detect-secrets)"}, nil
 }
 
