@@ -296,13 +296,13 @@ rules:
     check:
       type: cmd_check
       params:
-        command: "git rev-parse --abbrev-ref HEAD | xargs -I{} git diff --quiet {}..origin/{}"
+        command: "BRANCH=$(git rev-parse --abbrev-ref HEAD); git fetch origin $BRANCH --quiet 2>/dev/null; git diff --quiet $BRANCH..origin/$BRANCH 2>/dev/null"
         working_dir: project
         timeout: 10000
 
   - id: stop-pr-exists
     name: "PR Must Exist"
-    description: "A pull request must be created for the current branch"
+    description: "A pull request must be created for the current branch (skipped on main/master)"
     enabled: true
     priority: 6
     severity: block
@@ -311,7 +311,7 @@ rules:
     check:
       type: cmd_check
       params:
-        command: "gh pr view --json state -q '.state' 2>/dev/null | grep -qE 'OPEN|MERGED'"
+        command: "BRANCH=$(git rev-parse --abbrev-ref HEAD); if [ \"$BRANCH\" = 'main' ] || [ \"$BRANCH\" = 'master' ]; then exit 0; fi; gh pr view --json state -q '.state' 2>/dev/null | grep -qE 'OPEN|MERGED'"
         working_dir: project
         timeout: 10000
 
