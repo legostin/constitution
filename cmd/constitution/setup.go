@@ -24,6 +24,7 @@ func cmdSetup(args []string) {
 	fs := flag.NewFlagSet("setup", flag.ExitOnError)
 	scope := fs.String("scope", "", "Settings scope: user, project (default: interactive)")
 	remote := fs.String("remote", "", "Quick setup: create remote config + install hooks")
+	all := fs.Bool("all", false, "Select all default hooks (skip interactive checklist)")
 	fs.Parse(args)
 
 	fmt.Fprintln(os.Stderr)
@@ -35,7 +36,7 @@ func cmdSetup(args []string) {
 	}
 
 	// ── Select hooks ──
-	items := checklist("Select hooks to install:", []checklistItem{
+	items := []checklistItem{
 		{"SessionStart", "repo validation, skill injection", true},
 		{"UserPromptSubmit", "prompt modification, safety context", true},
 		{"PreToolUse: Bash", "command validation, block dangerous commands", true},
@@ -43,7 +44,11 @@ func cmdSetup(args []string) {
 		{"PreToolUse: Search", "directory access control (Glob/Grep)", true},
 		{"PostToolUse: Files", "run linters after file changes (Write/Edit)", false},
 		{"Stop", "final validation before agent stops", false},
-	})
+	}
+
+	if !*all {
+		items = checklist("Select hooks to install:", items)
+	}
 	fmt.Fprintln(os.Stderr)
 
 	selected := 0
@@ -99,6 +104,16 @@ func cmdSetup(args []string) {
 	}
 
 	applyHooks(settingsFile, hooks)
+
+	// Offer to install Claude Code skills
+	fmt.Fprintln(os.Stderr)
+	if promptYN("Установить Claude Code skills (/constitution, /constitution-rules)?", true) {
+		skillScope := "project"
+		if settingsFile == filepath.Join(homeDir(), ".claude", "settings.json") {
+			skillScope = "user"
+		}
+		cmdSkillInstall([]string{"--scope", skillScope})
+	}
 }
 
 func quickRemoteSetup(remoteURL string) {

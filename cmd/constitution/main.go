@@ -39,6 +39,10 @@ func runCLI(args []string) {
 		cmdValidate(args[1:])
 	case "uninstall":
 		cmdUninstall(args[1:])
+	case "rules":
+		cmdRules(args[1:])
+	case "skill":
+		cmdSkill(args[1:])
 	case "version", "--version", "-v":
 		fmt.Fprintf(os.Stderr, "constitution %s\n", version)
 	case "help", "--help", "-h":
@@ -64,6 +68,15 @@ Usage:
   constitution setup           Install hooks into Claude Code settings
   constitution validate        Validate configuration file
   constitution uninstall       Remove hooks from Claude Code settings
+  constitution rules           Interactive rule manager (wizard)
+  constitution rules add       Add a new rule step-by-step
+  constitution rules list      List all rules
+  constitution rules edit <id> Edit a rule
+  constitution rules delete <id> Delete a rule
+  constitution rules toggle <id> Enable/disable a rule
+  constitution skill install   Install Claude Code skills (/constitution, /constitution-rules)
+  constitution skill uninstall Remove skills
+  constitution skill list      Show installed skills
   constitution version         Show version
 
 Examples:
