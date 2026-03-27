@@ -43,7 +43,7 @@ func cmdSetup(args []string) {
 		{"PreToolUse: Files", "secret detection, directory ACL (Read/Write/Edit)", true},
 		{"PreToolUse: Search", "directory access control (Glob/Grep)", true},
 		{"PostToolUse: Files", "run linters after file changes (Write/Edit)", false},
-		{"Stop", "final validation before agent stops", false},
+		{"Stop", "final validation before agent stops", true},
 	}
 
 	if !*all {
@@ -177,7 +177,7 @@ func buildHooksJSON(items []checklistItem) map[string]interface{} {
 		hooks["PostToolUse"] = []hookEntry{entry("Write|Edit", 60)}
 	}
 	if items[6].Selected { // Stop
-		hooks["Stop"] = []hookEntry{entry("", 5)}
+		hooks["Stop"] = []hookEntry{entry("", 180)}
 	}
 
 	return hooks
