@@ -114,3 +114,58 @@ func TestCELCheck_MissingExpression(t *testing.T) {
 		t.Error("expected error for missing expression")
 	}
 }
+
+func TestCELCheck_LastAssistantMessage(t *testing.T) {
+	c := &CELCheck{}
+	err := c.Init(map[string]interface{}{
+		"expression": `last_assistant_message.contains("done")`,
+	})
+	if err != nil {
+		t.Fatalf("Init error: %v", err)
+	}
+
+	// Message contains "done" → CEL matches → Passed=false (rule triggered)
+	input := &types.HookInput{
+		HookEventName:       "Stop",
+		LastAssistantMessage: "All done, tests pass.",
+	}
+	result, err := c.Execute(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Execute error: %v", err)
+	}
+	if result.Passed {
+		t.Error("expected CEL to match when message contains 'done'")
+	}
+
+	// Message without "done" → CEL doesn't match → Passed=true
+	input.LastAssistantMessage = "I made some changes."
+	result, err = c.Execute(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Execute error: %v", err)
+	}
+	if !result.Passed {
+		t.Error("expected CEL to not match when message lacks 'done'")
+	}
+}
+
+func TestCELCheck_LastAssistantMessageEmpty(t *testing.T) {
+	c := &CELCheck{}
+	err := c.Init(map[string]interface{}{
+		"expression": `last_assistant_message.contains("test")`,
+	})
+	if err != nil {
+		t.Fatalf("Init error: %v", err)
+	}
+
+	input := &types.HookInput{
+		HookEventName:       "Stop",
+		LastAssistantMessage: "",
+	}
+	result, err := c.Execute(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Execute error: %v", err)
+	}
+	if !result.Passed {
+		t.Error("expected CEL to not match for empty message")
+	}
+}

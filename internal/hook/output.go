@@ -45,15 +45,11 @@ func BuildWarnOutput(warnings []string) *types.HookOutput {
 }
 
 // BuildStopBlockOutput creates an output that blocks the agent from stopping.
+// Claude Code expects decision/reason at the top level for Stop events.
 func BuildStopBlockOutput(reason string) *types.HookOutput {
-	specific := types.StopOutput{
-		HookEventName: "Stop",
-		Decision:      "block",
-		Reason:        reason,
-	}
-	raw, _ := json.Marshal(specific)
 	return &types.HookOutput{
-		HookSpecific: raw,
+		Decision: "block",
+		Reason:   reason,
 	}
 }
 

@@ -86,7 +86,58 @@ constitution setup
 export CONSTITUTION_TOKEN="your-token"
 ```
 
-### Тестирование хуков локально
+### Тестирование правил
+
+#### E2E-тесты (рекомендуется)
+
+E2E-тесты проверяют скомпилированный бинарник против реального `.constitution.yaml`. 31 тест-кейс по всем активным правилам:
+
+```bash
+make e2e
+```
+
+```
+=== RUN   TestSecretRead_BlockEnvFile
+--- PASS: TestSecretRead_BlockEnvFile (0.18s)
+=== RUN   TestSecretWrite_BlockAWSKey
+--- PASS: TestSecretWrite_BlockAWSKey (0.00s)
+=== RUN   TestCmdValidate_BlockRmRf
+--- PASS: TestCmdValidate_BlockRmRf (0.00s)
+...
+PASS
+ok  	github.com/legostin/constitution/e2e	0.802s
+```
+
+Для добавления своего тест-кейса — откройте `e2e/e2e_test.go` и создайте функцию:
+
+```go
+func TestMyRule_BlocksSomething(t *testing.T) {
+	run(t, testCase{
+		name:            "описание",
+		hookEvent:       "PreToolUse",
+		toolName:        "Bash",
+		toolInput:       map[string]interface{}{"command": "опасная команда"},
+		wantDeny:        true,
+		wantReasonMatch: "подстрока из deny reason",
+	})
+}
+```
+
+Доступные поля `testCase`:
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `hookEvent` | string | `PreToolUse`, `PostToolUse`, `SessionStart`, `UserPromptSubmit`, `Stop` |
+| `toolName` | string | `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep` |
+| `toolInput` | map | Входные данные инструмента (`command`, `file_path`, `content`, ...) |
+| `prompt` | string | Текст промпта (для `UserPromptSubmit`) |
+| `wantDeny` | bool | Ожидать `permissionDecision: "deny"` |
+| `wantExitCode` | int | Ожидаемый exit code (для `SessionStart`/`Stop`) |
+| `wantSystemMsg` | bool | Ожидать непустой `systemMessage` |
+| `wantContext` | bool | Ожидать непустой `additionalContext` |
+| `wantReasonMatch` | string | Подстрока, которая должна быть в deny reason |
+
+#### Ручное тестирование (ad-hoc)
 
 Не нужно запускать Claude Code — можно подать JSON напрямую:
 
@@ -101,6 +152,18 @@ echo '{
 
 # Ожидаемый вывод: {"hookSpecificOutput":{"hookEventName":"PreToolUse",
 #   "permissionDecision":"deny","permissionDecisionReason":"Command blocked: Root deletion"}}
+```
+
+```bash
+# Тест: чтение .env файла
+echo '{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Read",
+  "tool_input": {"file_path": "'$(pwd)'/.env"},
+  "cwd": "'$(pwd)'"
+}' | constitution
+
+# Ожидаемый вывод: deny, "matches deny pattern **/.env"
 ```
 
 ```bash
@@ -126,6 +189,37 @@ echo '{
 
 # Пустой вывод = разрешено
 ```
+
+#### Live-тестирование с Claude Code
+
+Для проверки реальной интеграции установите хуки на уровне проекта:
+
+```bash
+constitution setup --scope project
+# Или вручную: создайте .claude/settings.json (см. ниже)
+```
+
+Пример `.claude/settings.json` с полным набором хуков:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      { "matcher": "", "hooks": [{ "type": "command", "command": "constitution", "timeout": 5 }] }
+    ],
+    "UserPromptSubmit": [
+      { "matcher": "", "hooks": [{ "type": "command", "command": "constitution", "timeout": 5 }] }
+    ],
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "constitution", "timeout": 5 }] },
+      { "matcher": "Read|Write|Edit", "hooks": [{ "type": "command", "command": "constitution", "timeout": 5 }] },
+      { "matcher": "Glob|Grep", "hooks": [{ "type": "command", "command": "constitution", "timeout": 3 }] }
+    ]
+  }
+}
+```
+
+После создания файла перезапустите Claude Code и попробуйте заблокированные действия (чтение `.env`, опасные команды и т.д.).
 
 ### Что делать если хук блокирует
 
@@ -396,7 +490,7 @@ export CONSTITUTION_TOKEN="..."
         tool_input.content.contains("DROP")
 ```
 
-CEL-переменные: `session_id`, `cwd`, `hook_event_name`, `tool_name`, `tool_input` (map), `prompt`, `permission_mode`.
+CEL-переменные: `session_id`, `cwd`, `hook_event_name`, `tool_name`, `tool_input` (map), `prompt`, `permission_mode`, `last_assistant_message`.
 
 CEL-функции: `path_match(pattern, path)`, `regex_match(pattern, str)`, `is_within(path, base)`.
 
@@ -739,4 +833,90 @@ pip3 install detect-secrets
         IMPORTANT: Never commit secrets.
         Always run tests after changes.
         Never run destructive commands without confirmation.
+```
+
+### Проверка завершённости перед остановкой агента
+
+Используйте `cmd_check` для Stop-событий, чтобы агент не мог остановиться пока проект не в порядке:
+
+```yaml
+# Сборка должна проходить
+- id: stop-build
+  name: "Build Must Succeed"
+  enabled: true
+  priority: 1
+  severity: block
+  hook_events: [Stop]
+  message: "Build is broken. Fix compilation errors before stopping."
+  check:
+    type: cmd_check
+    params:
+      command: "go build ./..."
+      working_dir: project
+      timeout: 60000
+
+# Unit-тесты должны проходить
+- id: stop-tests
+  name: "Tests Must Pass"
+  enabled: true
+  priority: 2
+  severity: block
+  hook_events: [Stop]
+  message: "Tests are failing. Fix test failures before stopping."
+  check:
+    type: cmd_check
+    params:
+      command: "go test ./internal/... ./pkg/... -count=1"
+      working_dir: project
+      timeout: 120000
+
+# E2E-тесты должны проходить
+- id: stop-e2e
+  name: "E2E Tests Must Pass"
+  enabled: true
+  priority: 3
+  severity: block
+  hook_events: [Stop]
+  message: "E2E tests are failing. Fix them before stopping."
+  check:
+    type: cmd_check
+    params:
+      command: "go test ./e2e/ -count=1"
+      working_dir: project
+      timeout: 120000
+```
+
+**Важно**: увеличьте timeout для Stop-хука в `.claude/settings.json` — тесты могут занимать больше 5 секунд:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [{ "type": "command", "command": "constitution", "timeout": 180 }]
+      }
+    ]
+  }
+}
+```
+
+`cmd_check` также доступен для других событий. Можно использовать `{cwd}` как подстановку в команде.
+
+CEL-переменная `last_assistant_message` позволяет анализировать последнее сообщение агента:
+
+```yaml
+# Предупредить если агент не упомянул тесты в финальном сообщении
+- id: stop-mention-tests
+  name: "Mention Tests"
+  enabled: true
+  priority: 10
+  severity: warn
+  hook_events: [Stop]
+  check:
+    type: cel
+    params:
+      expression: >
+        !(last_assistant_message.contains("test") ||
+          last_assistant_message.contains("тест"))
 ```

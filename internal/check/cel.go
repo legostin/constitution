@@ -82,6 +82,7 @@ func (c *CELCheck) buildVars(input *types.HookInput) map[string]interface{} {
 		"tool_name":       input.ToolName,
 		"tool_input":      toolInput,
 		"prompt":          input.Prompt,
-		"permission_mode": input.PermissionMode,
+		"permission_mode":        input.PermissionMode,
+		"last_assistant_message": input.LastAssistantMessage,
 	}
 }

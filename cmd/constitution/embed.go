@@ -10,3 +10,9 @@ var minimalConfigTemplate string
 
 //go:embed configs/remote.yaml
 var remoteConfigTemplate string
+
+//go:embed skills/constitution/SKILL.md
+var skillConstitution string
+
+//go:embed skills/constitution-rules/SKILL.md
+var skillConstitutionRules string

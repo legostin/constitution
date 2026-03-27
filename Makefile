@@ -28,6 +28,10 @@ install:
 	go install -ldflags="-X main.version=$(VERSION)" ./cmd/constitution
 	go install ./cmd/constitutiond
 
+# End-to-end tests (builds binary, tests all rules from .constitution.yaml)
+e2e: build
+	go test ./e2e/ -count=1 -v
+
 # Quick smoke test
 smoke-test: build
 	echo '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"'$(PWD)'"}' | \

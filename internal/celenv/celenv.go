@@ -21,6 +21,7 @@ func New() (*cel.Env, error) {
 		cel.Variable("tool_input", cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable("prompt", cel.StringType),
 		cel.Variable("permission_mode", cel.StringType),
+		cel.Variable("last_assistant_message", cel.StringType),
 
 		// Custom functions
 		cel.Function("path_match",

@@ -47,4 +47,5 @@ func (r *Registry) registerBuiltins() {
 	r.Register("secret_yelp", func() types.Check { return &DetectSecrets{} })
 	r.Register("prompt_modify", func() types.Check { return &PromptModify{} })
 	r.Register("skill_inject", func() types.Check { return &SkillInject{} })
+	r.Register("cmd_check", func() types.Check { return &CmdCheck{} })
 }
