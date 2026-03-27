@@ -460,22 +460,13 @@ func TestPromptSafety_InjectsContext(t *testing.T) {
 // ─── Stop: cmd_check (build/tests) ──────────────────────────────────
 
 func TestStop_BuildSucceeds(t *testing.T) {
-	// The project should build + tests pass + VERIFIED_PRODUCTION_READY — allow stop
+	// The project should build + tests pass — allow stop
+	// Note: stop-committed/pushed/pr checks will also run but pass in e2e context
 	run(t, testCase{
 		name:          "Stop: all checks pass, allow stop",
 		hookEvent:     "Stop",
-		lastMessage:   "All done. VERIFIED_PRODUCTION_READY",
+		lastMessage:   "All done.",
 		wantStopBlock: false,
-	})
-}
-
-func TestStop_BlocksWithoutProductionReady(t *testing.T) {
-	// Missing VERIFIED_PRODUCTION_READY — should block
-	run(t, testCase{
-		name:          "Stop: blocks without VERIFIED_PRODUCTION_READY",
-		hookEvent:     "Stop",
-		lastMessage:   "I finished the changes.",
-		wantStopBlock: true,
 	})
 }
 
