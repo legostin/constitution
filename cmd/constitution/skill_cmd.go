@@ -36,6 +36,7 @@ func cmdSkill(args []string) {
 func cmdSkillInstall(args []string) {
 	fs := flag.NewFlagSet("skill install", flag.ExitOnError)
 	scope := fs.String("scope", "", "Scope: user (all projects) or project (this project)")
+	quiet := fs.Bool("quiet", false, "Suppress output (for non-interactive use)")
 	fs.Parse(args)
 
 	var skillDir string
@@ -46,7 +47,7 @@ func cmdSkillInstall(args []string) {
 		case "project":
 			skillDir = filepath.Join(".claude", "skills")
 		default:
-			printError(fmt.Sprintf("Неизвестный scope: %s (user или project)", *scope))
+			fmt.Fprintf(os.Stderr, "Unknown scope: %s (user or project)\n", *scope)
 			os.Exit(1)
 		}
 	} else {
@@ -66,22 +67,30 @@ func cmdSkillInstall(args []string) {
 	for name, content := range skillFiles {
 		dir := filepath.Join(skillDir, name)
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			printError(fmt.Sprintf("Ошибка создания %s: %v", dir, err))
+			if !*quiet {
+				printError(fmt.Sprintf("Ошибка создания %s: %v", dir, err))
+			}
 			continue
 		}
 		path := filepath.Join(dir, "SKILL.md")
 		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-			printError(fmt.Sprintf("Ошибка записи %s: %v", path, err))
+			if !*quiet {
+				printError(fmt.Sprintf("Ошибка записи %s: %v", path, err))
+			}
 			continue
 		}
-		printSuccess(fmt.Sprintf("/%s → %s", name, path))
+		if !*quiet {
+			printSuccess(fmt.Sprintf("/%s → %s", name, path))
+		}
 		installed++
 	}
 
-	fmt.Fprintln(os.Stderr)
-	if installed > 0 {
-		printSuccess(fmt.Sprintf("%d skill(s) установлено", installed))
-		printHint("Перезапустите Claude Code для активации")
+	if !*quiet {
+		fmt.Fprintln(os.Stderr)
+		if installed > 0 {
+			printSuccess(fmt.Sprintf("%d skill(s) установлено", installed))
+			printHint("Перезапустите Claude Code для активации")
+		}
 	}
 }
 
