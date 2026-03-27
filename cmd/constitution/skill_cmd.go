@@ -8,8 +8,7 @@ import (
 )
 
 var skillFiles = map[string]string{
-	"constitution":       skillConstitution,
-	"constitution-rules": skillConstitutionRules,
+	"constitution": skillConstitution,
 }
 
 func cmdSkill(args []string) {
