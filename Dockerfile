@@ -1,9 +1,10 @@
 FROM golang:1.23-alpine AS builder
+ARG VERSION=dev
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /constitution ./cmd/constitution
+RUN CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=${VERSION}" -o /constitution ./cmd/constitution
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /constitutiond ./cmd/constitutiond
 
 FROM alpine:3.21
@@ -11,5 +12,6 @@ RUN apk add --no-cache ca-certificates
 COPY --from=builder /constitution /usr/local/bin/constitution
 COPY --from=builder /constitutiond /usr/local/bin/constitutiond
 EXPOSE 8081
+HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://localhost:8081/api/v1/health || exit 1
 ENTRYPOINT ["constitutiond"]
 CMD ["--config", "/etc/constitution/config.yaml", "--addr", ":8081"]
