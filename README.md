@@ -120,6 +120,7 @@ constitution setup --workflow autonomous
 constitution setup --workflow plan-first
 constitution setup --workflow ooda-loop
 constitution setup --workflow ralph-loop
+constitution setup --workflow autoproduct
 constitution setup --workflow strict-security
 ```
 
@@ -129,6 +130,7 @@ constitution setup --workflow strict-security
 | **Plan-First** | Plan first, then code, then tests | skill_inject (workflow), prompt_modify (reminder), Stop: build+tests+commit |
 | **OODA Loop** | Military framework: observe, orient, decide, act | skill_inject (OODA cycle), prompt_modify (cycle reminder) |
 | **Ralph Loop** | Continuous autonomous loop until all PRD tasks complete | skill_inject (loop behavior), Stop: build+tests+committed |
+| **Autoproduct** | Spec-driven autonomous dev (inspired by Karpathy's autoresearch) | SPEC.md as source of truth, iteration logging to PROGRESS.md, commit/revert cycle |
 | **Strict Security** | Maximum protection | Extended secrets, Yelp detect-secrets, strict ACL, expanded cmd blocklist, repo control |
 
 Each pattern generates a complete `.constitution.yaml` with pre-configured rules. The wizard merges orchestration rules (skill_inject, prompt_modify) with the security rules you selected in step 3, so there are no duplicates. You can further customize rules via `constitution rules add` after setup.
