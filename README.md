@@ -580,6 +580,8 @@ remote:
 
 The Platform team runs `constitutiond` with the company's rules. Developers connect via the setup wizard (step 2).
 
+> **Full guide**: [docs/REMOTE.md](docs/REMOTE.md) — deployment, API reference, token rotation, production checklist.
+
 ```
 company-constitution/              <- Platform team's Git repo
 ├── company-rules.yaml             <- rules
