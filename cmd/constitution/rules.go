@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/legostin/constitution/pkg/types"
@@ -230,6 +231,13 @@ func cmdRulesToggle(id string, args []string) {
 // ─── Helpers ────────────────────────────────────────────────────────
 
 func findRuleIndex(policy *types.Policy, id string) int {
+	// Try numeric index first (1-based, as shown in "rules list")
+	if num, err := strconv.Atoi(id); err == nil {
+		if num >= 1 && num <= len(policy.Rules) {
+			return num - 1
+		}
+	}
+	// Then try by ID string
 	for i, r := range policy.Rules {
 		if r.ID == id {
 			return i
