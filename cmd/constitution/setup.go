@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -494,10 +495,13 @@ func installPlatformHooks(platform, scope string) {
 func buildPlatformHooks(platform string) map[string]interface{} {
 	hooks := make(map[string]interface{})
 
+	// Resolve absolute path to the constitution binary
+	binPath := resolveConstitutionBinary()
+
 	entry := func(matcher string, timeout int, status string) hookEntry {
 		h := hookEntry{
 			Matcher: matcher,
-			Hooks:   []hookDef{{Type: "command", Command: "constitution", Timeout: timeout, StatusMessage: status}},
+			Hooks:   []hookDef{{Type: "command", Command: binPath, Timeout: timeout, StatusMessage: status}},
 		}
 		return h
 	}
@@ -718,6 +722,28 @@ func cmdUninstall(args []string) {
 	} else {
 		printHint("No constitution hooks found")
 	}
+}
+
+func resolveConstitutionBinary() string {
+	// Try to find the binary via exec.LookPath first
+	if path, err := exec.LookPath("constitution"); err == nil {
+		if abs, err := filepath.Abs(path); err == nil {
+			return abs
+		}
+		return path
+	}
+	// Fallback: try common Go install locations
+	if home := homeDir(); home != "" {
+		goPath := filepath.Join(home, "go", "bin", "constitution")
+		if _, err := os.Stat(goPath); err == nil {
+			return goPath
+		}
+	}
+	// Last resort: use the running binary itself
+	if exe, err := os.Executable(); err == nil {
+		return exe
+	}
+	return "constitution"
 }
 
 func homeDir() string {
