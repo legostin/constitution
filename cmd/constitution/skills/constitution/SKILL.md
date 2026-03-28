@@ -39,7 +39,19 @@ constitution version  # Версия
 ```bash
 ls -la .constitution.yaml 2>/dev/null
 ```
-Если нет — создай через `constitution init --template full` или `constitution init --template minimal`.
+Если нет — спроси пользователя какой паттерн ему нужен:
+
+```bash
+# Базовые шаблоны:
+constitution init --template full       # Все типы проверок с примерами
+constitution init --template minimal    # Только секреты + команды
+
+# Паттерны оркестрации:
+constitution init --workflow autonomous       # Полная автономность + guardrails
+constitution init --workflow plan-first       # Plan → Execute → Test
+constitution init --workflow ooda-loop        # OODA: Observe → Orient → Decide → Act
+constitution init --workflow strict-security  # Максимальная безопасность
+```
 
 ### Шаг 3: Установка хуков
 Проверь текущие хуки:
@@ -229,6 +241,25 @@ cat .claude/settings.json
 ```json
 {"binary": "detect-secrets", "plugins": [{"name": "AWSKeyDetector"}, {"name": "GitHubTokenDetector"}]}
 ```
+
+## Паттерны оркестрации
+
+Готовые конфигурации для управления поведением агента:
+
+| Паттерн | Команда | Что делает |
+|---------|---------|-----------|
+| **Autonomous** | `constitution init --workflow autonomous` | Полная автономность, self-critique, safety guardrails |
+| **Plan-First** | `constitution init --workflow plan-first` | Обязательное планирование перед реализацией, Stop gates |
+| **OODA Loop** | `constitution init --workflow ooda-loop` | Цикл Observe→Orient→Decide→Act, рефлексия |
+| **Strict Security** | `constitution init --workflow strict-security` | Максимальная защита: секреты, ACL, расширенные блокировки |
+
+Каждый паттерн — полный `.constitution.yaml`. Можно комбинировать: создать паттерн как базу, потом добавить правила через `constitution rules add`.
+
+При выборе паттерна для пользователя:
+- Разработчик хочет работать быстро → **autonomous**
+- Команда требует процесс → **plan-first**
+- Нужен аналитический подход → **ooda-loop**
+- Работа с чувствительными данными → **strict-security**
 
 ## Hook Events
 
