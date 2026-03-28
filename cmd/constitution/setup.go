@@ -107,7 +107,7 @@ func cmdSetup(args []string) {
 
 	// Offer to install Claude Code skills
 	fmt.Fprintln(os.Stderr)
-	if promptYN("Установить Claude Code skills (/constitution, /constitution-rules)?", true) {
+	if promptYN("Install Claude Code skills (/constitution)?", true) {
 		skillScope := "project"
 		if settingsFile == filepath.Join(homeDir(), ".claude", "settings.json") {
 			skillScope = "user"

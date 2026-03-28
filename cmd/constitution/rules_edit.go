@@ -16,26 +16,26 @@ func cmdRulesEdit(id string) {
 
 	idx := findRuleIndex(policy, id)
 	if idx < 0 {
-		printError(fmt.Sprintf("Правило %q не найдено", id))
+		printError(fmt.Sprintf("Rule %q not found", id))
 		printAvailableIDs(policy)
 		return
 	}
 
 	rule := &policy.Rules[idx]
 
-	fmt.Fprintf(os.Stderr, "\n\033[1mРедактирование правила: %s\033[0m\n", rule.ID)
+	fmt.Fprintf(os.Stderr, "\n\033[1mEditing rule: %s\033[0m\n", rule.ID)
 	previewRuleYAML(*rule)
 
 	for {
-		idx := promptChoice("Что редактировать:", []string{
-			fmt.Sprintf("Идентификация  (name=%q, desc=%q)", rule.Name, rule.Description),
-			fmt.Sprintf("Поведение      (enabled=%v, severity=%s, priority=%d)", rule.Enabled, rule.Severity, rule.Priority),
+		idx := promptChoice("What to edit:", []string{
+			fmt.Sprintf("Identity       (name=%q, desc=%q)", rule.Name, rule.Description),
+			fmt.Sprintf("Behavior       (enabled=%v, severity=%s, priority=%d)", rule.Enabled, rule.Severity, rule.Priority),
 			fmt.Sprintf("Hook events    (%v)", rule.HookEvents),
 			fmt.Sprintf("Tool filter    (%v)", rule.ToolMatch),
 			fmt.Sprintf("Check params   (type=%s)", rule.Check.Type),
 			fmt.Sprintf("Message        (%q)", rule.Message),
-			"Готово — сохранить и выйти",
-			"Отмена — выйти без сохранения",
+			"Done — save and exit",
+			"Cancel — exit without saving",
 		}, 6)
 
 		switch idx {
@@ -53,16 +53,16 @@ func cmdRulesEdit(id string) {
 			editMessage(rule)
 		case 6: // Save
 			previewRuleYAML(*rule)
-			if promptYN("Сохранить изменения?", true) {
+			if promptYN("Save changes?", true) {
 				if err := saveConfig(configPath, policy); err != nil {
 					printError(err.Error())
 					return
 				}
-				printSuccess(fmt.Sprintf("Правило %q обновлено", rule.ID))
+				printSuccess(fmt.Sprintf("Rule %q updated", rule.ID))
 			}
 			return
 		case 7: // Cancel
-			fmt.Fprintln(os.Stderr, "  Отменено.")
+			fmt.Fprintln(os.Stderr, "  Cancelled.")
 			return
 		}
 
@@ -72,7 +72,7 @@ func cmdRulesEdit(id string) {
 }
 
 func editIdentity(rule *types.Rule, policy *types.Policy) {
-	printSection("Редактирование: Идентификация")
+	printSection("Edit: Identity")
 
 	name := promptString("Name", rule.Name)
 	rule.Name = name
@@ -82,9 +82,9 @@ func editIdentity(rule *types.Rule, policy *types.Policy) {
 }
 
 func editBehavior(rule *types.Rule) {
-	printSection("Редактирование: Поведение")
+	printSection("Edit: Behavior")
 
-	rule.Enabled = promptYN("Включено?", rule.Enabled)
+	rule.Enabled = promptYN("Enabled?", rule.Enabled)
 	fmt.Fprintln(os.Stderr)
 	rule.Severity = promptSeverity()
 	fmt.Fprintln(os.Stderr)
@@ -97,15 +97,15 @@ func editBehavior(rule *types.Rule) {
 }
 
 func editHookEvents(rule *types.Rule) {
-	printSection("Редактирование: Hook Events")
+	printSection("Edit: Hook Events")
 
 	allEvents := []string{"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop"}
 	allDescs := []string{
-		"Начало сессии",
-		"Промпт пользователя",
-		"Перед инструментом",
-		"После инструмента",
-		"Завершение",
+		"Session start",
+		"User prompt",
+		"Before tool",
+		"After tool",
+		"Stop",
 	}
 
 	currentSet := make(map[string]bool)
@@ -131,17 +131,17 @@ func editHookEvents(rule *types.Rule) {
 		}
 	}
 	if len(events) == 0 {
-		printError("Нужно хотя бы одно событие, изменения не применены")
+		printError("At least one event required, changes not applied")
 		return
 	}
 	rule.HookEvents = events
 }
 
 func editToolMatch(rule *types.Rule) {
-	printSection("Редактирование: Tool Filter")
+	printSection("Edit: Tool Filter")
 
 	allTools := []string{"Bash", "Read", "Write", "Edit", "Glob", "Grep"}
-	allDescs := []string{"Shell", "Чтение", "Создание", "Редактирование", "Поиск файлов", "Поиск в тексте"}
+	allDescs := []string{"Shell", "Reading", "Creating", "Editing", "File search", "Content search"}
 
 	currentSet := make(map[string]bool)
 	for _, t := range rule.ToolMatch {
@@ -157,7 +157,7 @@ func editToolMatch(rule *types.Rule) {
 		})
 	}
 
-	items = checklist("Инструменты:", items)
+	items = checklist("Tools:", items)
 
 	var tools []string
 	for _, item := range items {
@@ -169,24 +169,24 @@ func editToolMatch(rule *types.Rule) {
 }
 
 func editCheck(rule *types.Rule) {
-	printSection("Редактирование: Check Type & Params")
+	printSection("Edit: Check Type & Params")
 
-	if promptYN(fmt.Sprintf("Сменить тип проверки? (сейчас: %s)", rule.Check.Type), false) {
+	if promptYN(fmt.Sprintf("Change check type? (current: %s)", rule.Check.Type), false) {
 		var options []string
 		for _, ct := range checkTypes {
 			options = append(options, fmt.Sprintf("%-14s — %s", ct.name, ct.desc))
 		}
-		idx := promptChoice("Новый тип:", options, 0)
+		idx := promptChoice("New type:", options, 0)
 		rule.Check.Type = checkTypes[idx].name
 	}
 
 	fmt.Fprintln(os.Stderr)
-	if promptYN("Перенастроить параметры?", true) {
+	if promptYN("Reconfigure parameters?", true) {
 		rule.Check.Params = wizardParams(rule.Check.Type)
 	}
 }
 
 func editMessage(rule *types.Rule) {
-	printSection("Редактирование: Message")
+	printSection("Edit: Message")
 	rule.Message = promptString("Message", rule.Message)
 }

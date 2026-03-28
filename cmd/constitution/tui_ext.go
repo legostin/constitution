@@ -43,7 +43,7 @@ func promptInt(prompt string, defaultVal, min, max int) int {
 			return defaultVal
 		}
 		if val < min || val > max {
-			printError(fmt.Sprintf("Должно быть от %d до %d", min, max))
+			printError(fmt.Sprintf("Must be between %d and %d", min, max))
 			continue
 		}
 		return val
@@ -60,7 +60,7 @@ func promptStringRequired(prompt string) string {
 		if val != "" {
 			return val
 		}
-		printError("Обязательное поле, введите значение")
+		printError("Required field, enter a value")
 	}
 }
 
@@ -68,7 +68,7 @@ func promptStringRequired(prompt string) string {
 // Returns the joined text.
 func promptMultiline(prompt string) string {
 	fmt.Fprintf(os.Stderr, "  %s\n", prompt)
-	printHint("(пустая строка для завершения)")
+	printHint("(empty line to finish)")
 
 	var lines []string
 	for {
@@ -98,24 +98,24 @@ func promptRegex(prompt, defaultVal string) string {
 			if defaultVal != "" {
 				return defaultVal
 			}
-			printError("Обязательное поле")
+			printError("Required field")
 			continue
 		}
 		if _, err := regexp.Compile(val); err != nil {
-			printError(fmt.Sprintf("Невалидный regex: %v", err))
+			printError(fmt.Sprintf("Invalid regex: %v", err))
 			continue
 		}
-		printSuccess("Валидный regex")
+		printSuccess("Valid regex")
 		return val
 	}
 }
 
 // promptSeverity shows a severity chooser and returns the typed Severity.
 func promptSeverity() types.Severity {
-	idx := promptChoice("Severity — что происходит при срабатывании:", []string{
-		"block  — Заблокировать действие",
-		"warn   — Разрешить + предупреждение",
-		"audit  — Разрешить тихо, только логирование",
+	idx := promptChoice("Severity — what happens when triggered:", []string{
+		"block  — Block the action",
+		"warn   — Allow + warning",
+		"audit  — Allow silently, logging only",
 	}, 0)
 	switch idx {
 	case 1:
@@ -146,7 +146,7 @@ func promptPatternLoop(label string, required bool) []interface{} {
 		patterns = append(patterns, p)
 		i++
 
-		if !promptYN(fmt.Sprintf("Добавить ещё %s?", label), !required || len(patterns) == 0) {
+		if !promptYN(fmt.Sprintf("Add another %s?", label), !required || len(patterns) == 0) {
 			break
 		}
 	}
@@ -164,14 +164,14 @@ func promptStringLoop(label string, required bool) []interface{} {
 		val = strings.TrimSpace(val)
 		if val == "" {
 			if required && len(items) == 0 {
-				printError("Нужно добавить хотя бы один элемент")
+				printError("Must add at least one item")
 				continue
 			}
 			break
 		}
 		items = append(items, val)
 		i++
-		if !promptYN("Добавить ещё?", len(items) == 0) {
+		if !promptYN("Add another?", len(items) == 0) {
 			break
 		}
 	}

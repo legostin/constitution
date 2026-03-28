@@ -29,7 +29,7 @@ func wizardParams(checkType string) map[string]interface{} {
 	case "cmd_check":
 		return wizardParamsCmdCheck()
 	default:
-		printError(fmt.Sprintf("Неизвестный тип: %s", checkType))
+		printError(fmt.Sprintf("Unknown type: %s", checkType))
 		return map[string]interface{}{}
 	}
 }
@@ -37,29 +37,29 @@ func wizardParams(checkType string) map[string]interface{} {
 // ─── secret_regex ───────────────────────────────────────────────────
 
 func wizardParamsSecretRegex() map[string]interface{} {
-	printSection("Настройка: Secret Regex Scanner")
+	printSection("Configure: Secret Regex Scanner")
 
-	idx := promptChoice("Scan field (какое поле tool_input сканировать):", []string{
-		"content     — Содержимое файла (Write)",
-		"new_string  — Текст замены (Edit)",
-		"command     — Bash-команда",
+	idx := promptChoice("Scan field (which tool_input field to scan):", []string{
+		"content     — File content (Write)",
+		"new_string  — Replacement text (Edit)",
+		"command     — Bash command",
 	}, 0)
 	scanFields := []string{"content", "new_string", "command"}
 	scanField := scanFields[idx]
 
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintf(os.Stderr, "  \033[1mПаттерны секретов\033[0m\n")
-	printHint("Добавьте паттерны для обнаружения. Каждый имеет имя и regex.")
+	fmt.Fprintf(os.Stderr, "  \033[1mSecret patterns\033[0m\n")
+	printHint("Add patterns for detection. Each has a name and regex.")
 
 	var patterns []interface{}
 	i := 1
 	for {
-		fmt.Fprintf(os.Stderr, "\n  Паттерн #%d:\n", i)
+		fmt.Fprintf(os.Stderr, "\n  Pattern #%d:\n", i)
 		name := promptStringRequired("Name")
 		rx := promptRegex("Regex", "")
 		patterns = append(patterns, map[string]interface{}{"name": name, "regex": rx})
 		i++
-		if !promptYN("Добавить ещё паттерн?", true) {
+		if !promptYN("Add another pattern?", true) {
 			break
 		}
 	}
@@ -70,8 +70,8 @@ func wizardParamsSecretRegex() map[string]interface{} {
 	}
 
 	fmt.Fprintln(os.Stderr)
-	if promptYN("Добавить allow_patterns (исключения)?", false) {
-		printHint("Regex-паттерны для исключений (example keys, тестовые значения)")
+	if promptYN("Add allow_patterns (exceptions)?", false) {
+		printHint("Regex patterns for exceptions (example keys, test values)")
 		var allowPatterns []interface{}
 		for {
 			fmt.Fprintf(os.Stderr, "  Allow pattern: ")
@@ -81,7 +81,7 @@ func wizardParamsSecretRegex() map[string]interface{} {
 				break
 			}
 			allowPatterns = append(allowPatterns, val)
-			if !promptYN("Ещё?", false) {
+			if !promptYN("More?", false) {
 				break
 			}
 		}
@@ -96,28 +96,28 @@ func wizardParamsSecretRegex() map[string]interface{} {
 // ─── dir_acl ────────────────────────────────────────────────────────
 
 func wizardParamsDirACL() map[string]interface{} {
-	printSection("Настройка: Directory ACL")
+	printSection("Configure: Directory ACL")
 
-	modeIdx := promptChoice("Режим:", []string{
-		"denylist   — Заблокировать указанные пути (всё остальное разрешено)",
-		"allowlist  — Разрешить только указанные пути",
+	modeIdx := promptChoice("Mode:", []string{
+		"denylist   — Block specified paths (everything else allowed)",
+		"allowlist  — Allow only specified paths",
 	}, 0)
 	modes := []string{"denylist", "allowlist"}
 
-	pathIdx := promptChoice("Path field (откуда брать путь файла):", []string{
-		"auto       — Авто-определение (file_path, path, pattern)",
-		"file_path  — Поле file_path",
-		"path       — Поле path",
-		"pattern    — Поле pattern",
+	pathIdx := promptChoice("Path field (where to get the file path):", []string{
+		"auto       — Auto-detect (file_path, path, pattern)",
+		"file_path  — file_path field",
+		"path       — path field",
+		"pattern    — pattern field",
 	}, 0)
 	pathFields := []string{"auto", "file_path", "path", "pattern"}
 
-	allowWithin := promptYN("Allow within project? (пути внутри CWD всегда разрешены)", true)
+	allowWithin := promptYN("Allow within project? (paths inside CWD always allowed)", true)
 
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintf(os.Stderr, "  \033[1mGlob-паттерны путей\033[0m\n")
-	printHint("Поддерживается ** для рекурсии, ~ для домашней директории")
-	printHint("Примеры: /etc/**, ~/.ssh/**, **/.env, **/*.pem")
+	fmt.Fprintf(os.Stderr, "  \033[1mPath glob patterns\033[0m\n")
+	printHint("Supports ** for recursion, ~ for home directory")
+	printHint("Examples: /etc/**, ~/.ssh/**, **/.env, **/*.pem")
 
 	patterns := promptStringLoop("Pattern", true)
 
@@ -132,9 +132,9 @@ func wizardParamsDirACL() map[string]interface{} {
 // ─── cmd_validate ───────────────────────────────────────────────────
 
 func wizardParamsCmdValidate() map[string]interface{} {
-	printSection("Настройка: Command Validator")
+	printSection("Configure: Command Validator")
 
-	fmt.Fprintf(os.Stderr, "  \033[1mDeny-паттерны (команды для блокировки)\033[0m\n")
+	fmt.Fprintf(os.Stderr, "  \033[1mDeny patterns (commands to block)\033[0m\n")
 	denyPatterns := promptPatternLoop("Deny pattern", true)
 
 	params := map[string]interface{}{
@@ -142,7 +142,7 @@ func wizardParamsCmdValidate() map[string]interface{} {
 	}
 
 	fmt.Fprintln(os.Stderr)
-	if promptYN("Добавить allow-паттерны (исключения)?", false) {
+	if promptYN("Add allow patterns (exceptions)?", false) {
 		allowPatterns := promptPatternLoop("Allow pattern", false)
 		if len(allowPatterns) > 0 {
 			params["allow_patterns"] = allowPatterns
@@ -155,24 +155,24 @@ func wizardParamsCmdValidate() map[string]interface{} {
 // ─── repo_access ────────────────────────────────────────────────────
 
 func wizardParamsRepoAccess() map[string]interface{} {
-	printSection("Настройка: Repository Access")
+	printSection("Configure: Repository Access")
 
-	modeIdx := promptChoice("Режим:", []string{
-		"allowlist  — Разрешить только указанные репозитории",
-		"denylist   — Заблокировать указанные репозитории",
+	modeIdx := promptChoice("Mode:", []string{
+		"allowlist  — Allow only specified repositories",
+		"denylist   — Block specified repositories",
 	}, 0)
 	modes := []string{"allowlist", "denylist"}
 
-	detectIdx := promptChoice("Метод определения репозитория:", []string{
-		"git_remote  — Из URL git remote (рекомендуется)",
-		"directory   — По имени директории",
+	detectIdx := promptChoice("Repository detection method:", []string{
+		"git_remote  — From git remote URL (recommended)",
+		"directory   — By directory name",
 	}, 0)
 	detects := []string{"git_remote", "directory"}
 
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintf(os.Stderr, "  \033[1mПаттерны репозиториев\033[0m\n")
-	printHint("Формат: github.com/org/repo или github.com/org/*")
-	printHint("Примеры: github.com/acme-corp/*, github.com/acme-corp/my-repo")
+	fmt.Fprintf(os.Stderr, "  \033[1mRepository patterns\033[0m\n")
+	printHint("Format: github.com/org/repo or github.com/org/*")
+	printHint("Examples: github.com/acme-corp/*, github.com/acme-corp/my-repo")
 
 	patterns := promptStringLoop("Pattern", true)
 
@@ -186,23 +186,23 @@ func wizardParamsRepoAccess() map[string]interface{} {
 // ─── cel ────────────────────────────────────────────────────────────
 
 func wizardParamsCEL() map[string]interface{} {
-	printSection("Настройка: CEL Expression")
+	printSection("Configure: CEL Expression")
 
-	printHint("Напишите CEL-выражение, которое возвращает true когда правило")
-	printHint("должно СРАБОТАТЬ (заблокировать/предупредить/залогировать).")
+	printHint("Write a CEL expression that returns true when the rule")
+	printHint("should TRIGGER (block/warn/log).")
 	fmt.Fprintln(os.Stderr)
-	printHint("Доступные переменные:")
+	printHint("Available variables:")
 	printHint("  session_id, cwd, hook_event_name, tool_name,")
 	printHint("  tool_input (map), prompt, permission_mode, last_assistant_message")
 	fmt.Fprintln(os.Stderr)
-	printHint("Примеры:")
+	printHint("Examples:")
 	printHint(`  tool_input.command.contains("git push") && tool_input.command.contains("main")`)
 	printHint(`  tool_name == "Bash" && regex_match("curl.*\\|.*bash", tool_input.command)`)
 	fmt.Fprintln(os.Stderr)
 
 	expr := promptMultiline("Expression:")
 	if expr == "" {
-		expr = promptStringRequired("Expression (обязательно)")
+		expr = promptStringRequired("Expression (required)")
 	}
 
 	return map[string]interface{}{
@@ -213,12 +213,12 @@ func wizardParamsCEL() map[string]interface{} {
 // ─── linter ─────────────────────────────────────────────────────────
 
 func wizardParamsLinter() map[string]interface{} {
-	printSection("Настройка: External Linter")
+	printSection("Configure: External Linter")
 
-	printHint("Команда для запуска линтера. Используйте {file} как плейсхолдер.")
-	printHint("Примеры: golangci-lint run --timeout=30s {file}")
-	printHint("         eslint {file}")
-	printHint("         ruff check {file}")
+	printHint("Command to run the linter. Use {file} as a placeholder.")
+	printHint("Examples: golangci-lint run --timeout=30s {file}")
+	printHint("          eslint {file}")
+	printHint("          ruff check {file}")
 	fmt.Fprintln(os.Stderr)
 
 	command := promptStringRequired("Command")
@@ -228,8 +228,8 @@ func wizardParamsLinter() map[string]interface{} {
 	}
 
 	fmt.Fprintln(os.Stderr)
-	if promptYN("Фильтр по расширениям файлов?", false) {
-		printHint("Примеры: .go, .py, .js, .ts")
+	if promptYN("Filter by file extensions?", false) {
+		printHint("Examples: .go, .py, .js, .ts")
 		exts := promptStringLoop("Extension", false)
 		if len(exts) > 0 {
 			params["file_extensions"] = exts
@@ -237,13 +237,13 @@ func wizardParamsLinter() map[string]interface{} {
 	}
 
 	wdIdx := promptChoice("Working directory:", []string{
-		"project  — Из корня проекта (CWD)",
-		"file     — Из директории файла",
+		"project  — From project root (CWD)",
+		"file     — From file directory",
 	}, 0)
 	wds := []string{"project", "file"}
 	params["working_dir"] = wds[wdIdx]
 
-	params["timeout"] = promptInt("Timeout (мс)", 30000, 1000, 300000)
+	params["timeout"] = promptInt("Timeout (ms)", 30000, 1000, 300000)
 
 	return params
 }
@@ -251,14 +251,14 @@ func wizardParamsLinter() map[string]interface{} {
 // ─── secret_yelp ────────────────────────────────────────────────────
 
 func wizardParamsSecretYelp() map[string]interface{} {
-	printSection("Настройка: Yelp detect-secrets")
+	printSection("Configure: Yelp detect-secrets")
 
-	printHint("Требуется: pip install detect-secrets")
+	printHint("Required: pip install detect-secrets")
 	fmt.Fprintln(os.Stderr)
 
-	binary := promptString("Путь к бинарнику", "detect-secrets")
+	binary := promptString("Path to binary", "detect-secrets")
 
-	plugins := checklist("Плагины (детекторы):", []checklistItem{
+	plugins := checklist("Plugins (detectors):", []checklistItem{
 		{"AWSKeyDetector", "AWS access/secret keys", true},
 		{"ArtifactoryDetector", "Artifactory tokens", false},
 		{"AzureStorageKeyDetector", "Azure storage keys", false},
@@ -299,13 +299,13 @@ func wizardParamsSecretYelp() map[string]interface{} {
 	}
 
 	fmt.Fprintln(os.Stderr)
-	if promptYN("Добавить exclude_secrets (regex-исключения)?", false) {
+	if promptYN("Add exclude_secrets (regex exceptions)?", false) {
 		excl := promptStringLoop("Exclude secret regex", false)
 		if len(excl) > 0 {
 			params["exclude_secrets"] = excl
 		}
 	}
-	if promptYN("Добавить exclude_lines?", false) {
+	if promptYN("Add exclude_lines?", false) {
 		excl := promptStringLoop("Exclude line pattern", false)
 		if len(excl) > 0 {
 			params["exclude_lines"] = excl
@@ -318,36 +318,36 @@ func wizardParamsSecretYelp() map[string]interface{} {
 // ─── prompt_modify ──────────────────────────────────────────────────
 
 func wizardParamsPromptModify() map[string]interface{} {
-	printSection("Настройка: Prompt Modification")
+	printSection("Configure: Prompt Modification")
 
-	printHint("Инжект текста в промпты. Все поля опциональны,")
-	printHint("но хотя бы одно должно быть заполнено.")
+	printHint("Text injection into prompts. All fields are optional,")
+	printHint("but at least one must be filled.")
 	fmt.Fprintln(os.Stderr)
 
 	params := map[string]interface{}{}
 
-	fmt.Fprintf(os.Stderr, "  \033[1mSystem context\033[0m (системный контекст):\n")
-	sysCtx := promptMultiline("Текст:")
+	fmt.Fprintf(os.Stderr, "  \033[1mSystem context\033[0m:\n")
+	sysCtx := promptMultiline("Text:")
 	if sysCtx != "" {
 		params["system_context"] = sysCtx
 	}
 
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintf(os.Stderr, "  \033[1mPrepend\033[0m (добавить перед промптом):\n")
-	prepend := promptMultiline("Текст:")
+	fmt.Fprintf(os.Stderr, "  \033[1mPrepend\033[0m (add before prompt):\n")
+	prepend := promptMultiline("Text:")
 	if prepend != "" {
 		params["prepend"] = prepend
 	}
 
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintf(os.Stderr, "  \033[1mAppend\033[0m (добавить после промпта):\n")
-	appnd := promptMultiline("Текст:")
+	fmt.Fprintf(os.Stderr, "  \033[1mAppend\033[0m (add after prompt):\n")
+	appnd := promptMultiline("Text:")
 	if appnd != "" {
 		params["append"] = appnd
 	}
 
 	if len(params) == 0 {
-		printError("Нужно заполнить хотя бы одно поле")
+		printError("At least one field must be filled")
 		return wizardParamsPromptModify()
 	}
 
@@ -357,28 +357,28 @@ func wizardParamsPromptModify() map[string]interface{} {
 // ─── skill_inject ───────────────────────────────────────────────────
 
 func wizardParamsSkillInject() map[string]interface{} {
-	printSection("Настройка: Skill/Context Injection")
+	printSection("Configure: Skill/Context Injection")
 
-	printHint("Инжект контекста при старте сессии.")
-	printHint("Укажите inline-текст и/или путь к файлу (файл имеет приоритет).")
+	printHint("Context injection at session start.")
+	printHint("Specify inline text and/or path to a file (file takes priority).")
 	fmt.Fprintln(os.Stderr)
 
 	params := map[string]interface{}{}
 
-	fmt.Fprintf(os.Stderr, "  \033[1mInline-контекст\033[0m:\n")
-	ctx := promptMultiline("Текст:")
+	fmt.Fprintf(os.Stderr, "  \033[1mInline context\033[0m:\n")
+	ctx := promptMultiline("Text:")
 	if ctx != "" {
 		params["context"] = ctx
 	}
 
 	fmt.Fprintln(os.Stderr)
-	ctxFile := promptString("Путь к файлу (относительно проекта)", "")
+	ctxFile := promptString("Path to file (relative to project)", "")
 	if ctxFile != "" {
 		params["context_file"] = ctxFile
 	}
 
 	if len(params) == 0 {
-		printError("Нужно указать текст или файл")
+		printError("Must specify text or file")
 		return wizardParamsSkillInject()
 	}
 
@@ -388,12 +388,12 @@ func wizardParamsSkillInject() map[string]interface{} {
 // ─── cmd_check ──────────────────────────────────────────────────────
 
 func wizardParamsCmdCheck() map[string]interface{} {
-	printSection("Настройка: Command Check")
+	printSection("Configure: Command Check")
 
-	printHint("Shell-команда. Exit code 0 = pass, non-zero = fail.")
-	printHint("Используйте {cwd} как плейсхолдер для директории проекта.")
+	printHint("Shell command. Exit code 0 = pass, non-zero = fail.")
+	printHint("Use {cwd} as a placeholder for the project directory.")
 	fmt.Fprintln(os.Stderr)
-	printHint("Примеры:")
+	printHint("Examples:")
 	printHint("  go test ./... -count=1")
 	printHint("  test -f README.md")
 	printHint("  make check")
@@ -402,15 +402,15 @@ func wizardParamsCmdCheck() map[string]interface{} {
 	command := promptStringRequired("Command")
 
 	wdIdx := promptChoice("Working directory:", []string{
-		"project  — Из корня проекта (CWD)",
-		"Указать путь вручную",
+		"project  — From project root (CWD)",
+		"Specify path manually",
 	}, 0)
 	wd := "project"
 	if wdIdx == 1 {
 		wd = promptStringRequired("Working dir path")
 	}
 
-	timeout := promptInt("Timeout (мс)", 30000, 1000, 600000)
+	timeout := promptInt("Timeout (ms)", 30000, 1000, 600000)
 
 	return map[string]interface{}{
 		"command":     command,

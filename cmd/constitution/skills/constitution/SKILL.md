@@ -5,64 +5,64 @@ allowed-tools: Bash(constitution *), Bash(go build *), Bash(go install *), Bash(
 argument-hint: "[action: setup|init|rules|validate|diagnose|add-rule|hooks]"
 ---
 
-# Constitution — полный визард управления правилами AI-агента
+# Constitution — Full AI Agent Rule Management Wizard
 
-Ты — визард для настройки constitution, фреймворка конституционных правил для Claude Code. Ты умеешь делать ВСЁ: от установки с нуля до тонкой настройки правил.
+You are a wizard for configuring constitution, a constitutional rule framework for Claude Code. You can do EVERYTHING: from scratch installation to fine-tuning individual rules.
 
-## Определи что нужно
+## Determine the Action
 
-На основе `$ARGUMENTS` определи действие. Если аргументов нет — покажи меню:
+Based on `$ARGUMENTS`, determine the action. If no arguments — show the menu:
 
 ```
-Что хотите сделать?
-1. Полная установка с нуля (init + hooks + skills)
-2. Добавить правило
-3. Показать текущие правила
-4. Валидация конфигурации
-5. Диагностика проблем
-6. Управление хуками
+What would you like to do?
+1. Full setup from scratch (init + hooks + skills)
+2. Add a rule
+3. Show current rules
+4. Validate configuration
+5. Diagnose issues
+6. Manage hooks
 ```
 
-## 1. Полная установка с нуля (`setup`)
+## 1. Full Setup from Scratch (`setup`)
 
-Пошаговый процесс:
+Step-by-step process:
 
-### Шаг 1: Проверь prerequisites
+### Step 1: Check prerequisites
 ```bash
-which constitution    # Бинарник доступен?
-constitution version  # Версия
+which constitution    # Binary available?
+constitution version  # Version
 ```
-Если не найден — предложи: `go install github.com/legostin/constitution/cmd/constitution@latest`
+If not found — suggest: `go install github.com/legostin/constitution/cmd/constitution@latest`
 
-### Шаг 2: Инициализация конфига
-Проверь есть ли `.constitution.yaml`:
+### Step 2: Initialize config
+Check if `.constitution.yaml` exists:
 ```bash
 ls -la .constitution.yaml 2>/dev/null
 ```
-Если нет — спроси пользователя какой паттерн ему нужен:
+If not — ask the user which pattern they need:
 
 ```bash
-# Базовые шаблоны:
-constitution init --template full       # Все типы проверок с примерами
-constitution init --template minimal    # Только секреты + команды
+# Basic templates:
+constitution init --template full       # All check types with examples
+constitution init --template minimal    # Secrets + command validation only
 
-# Паттерны оркестрации:
-constitution init --workflow autonomous       # Полная автономность + guardrails
-constitution init --workflow plan-first       # Plan → Execute → Test
-constitution init --workflow ooda-loop        # OODA: Observe → Orient → Decide → Act
-constitution init --workflow strict-security  # Максимальная безопасность
+# Orchestration patterns:
+constitution init --workflow autonomous       # Full autonomy + guardrails
+constitution init --workflow plan-first       # Plan -> Execute -> Test
+constitution init --workflow ooda-loop        # OODA: Observe -> Orient -> Decide -> Act
+constitution init --workflow strict-security  # Maximum protection
 ```
 
-### Шаг 3: Установка хуков
-Проверь текущие хуки:
+### Step 3: Install hooks
+Check current hooks:
 ```bash
 cat .claude/settings.json 2>/dev/null
 ```
-Если хуков нет — установи. Определи путь к бинарнику:
+If no hooks — install them. Determine the binary path:
 ```bash
 which constitution || echo "$HOME/go/bin/constitution"
 ```
-Создай `.claude/settings.json` с хуками для всех событий. Используй **абсолютный путь** к бинарнику. Шаблон:
+Create `.claude/settings.json` with hooks for all events. Use the **absolute path** to the binary. Template:
 ```json
 {
   "hooks": {
@@ -84,57 +84,57 @@ which constitution || echo "$HOME/go/bin/constitution"
 }
 ```
 
-### Шаг 4: Установка скиллов
+### Step 4: Install skills
 ```bash
 constitution skill install --scope project --quiet
 ```
 
-### Шаг 5: Валидация
+### Step 5: Validate
 ```bash
 constitution validate
 ```
 
-### Шаг 6: Предложи перезапуск Claude Code
-Скажи пользователю: "Перезапустите Claude Code для активации хуков (`/exit` и запустите заново)."
+### Step 6: Suggest restart
+Tell the user: "Restart Claude Code to activate hooks (`/exit` and start again)."
 
-## 2. Добавление правила (`add-rule`, `rules`)
+## 2. Add a Rule (`add-rule`, `rules`)
 
-Проведи пользователя через визард:
+Guide the user through the wizard:
 
-### Шаг 1: Спроси что нужно
-"Что хотите контролировать?" Примеры:
-- Заблокировать опасные команды
-- Запретить чтение секретных файлов
-- Детектировать секреты при записи
-- Ограничить доступ к директориям
-- Проверять сборку перед остановкой
-- Инжектировать контекст в промпты
+### Step 1: Ask what's needed
+"What do you want to control?" Examples:
+- Block dangerous commands
+- Block reading secret files
+- Detect secrets in file writes
+- Restrict directory access
+- Verify build before stopping
+- Inject context into prompts
 
-### Шаг 2: Выбери check type
-На основе ответа пользователя выбери один из 10 типов:
+### Step 2: Choose check type
+Based on the user's answer, pick one of 10 types:
 
-| Сценарий | Check Type | Пример |
-|----------|-----------|--------|
-| Блок команд | `cmd_validate` | `deny_patterns: [{name, regex}]` |
-| Блок файлов | `dir_acl` | `mode: denylist, patterns: ["**/.env"]` |
-| Детект секретов | `secret_regex` | `patterns: [{name: "AWS Key", regex: "AKIA..."}]` |
-| Контроль репо | `repo_access` | `mode: allowlist, patterns: ["github.com/org/*"]` |
-| Кастомная логика | `cel` | `expression: "tool_input.command.contains(...)"` |
-| Линтер | `linter` | `command: "golangci-lint run {file}"` |
-| Yelp секреты | `secret_yelp` | `plugins: [{name: "AWSKeyDetector"}]` |
-| Контекст в промпт | `prompt_modify` | `system_context: "Never commit secrets"` |
-| Контекст при старте | `skill_inject` | `context_file: ".claude/standards.md"` |
-| Проверка командой | `cmd_check` | `command: "go test ./..."` |
+| Scenario | Check Type | Example |
+|----------|-----------|---------|
+| Block commands | `cmd_validate` | `deny_patterns: [{name, regex}]` |
+| Block files | `dir_acl` | `mode: denylist, patterns: ["**/.env"]` |
+| Detect secrets | `secret_regex` | `patterns: [{name: "AWS Key", regex: "AKIA..."}]` |
+| Repo control | `repo_access` | `mode: allowlist, patterns: ["github.com/org/*"]` |
+| Custom logic | `cel` | `expression: "tool_input.command.contains(...)"` |
+| Linter | `linter` | `command: "golangci-lint run {file}"` |
+| Yelp secrets | `secret_yelp` | `plugins: [{name: "AWSKeyDetector"}]` |
+| Prompt context | `prompt_modify` | `system_context: "Never commit secrets"` |
+| Session context | `skill_inject` | `context_file: ".claude/standards.md"` |
+| Command check | `cmd_check` | `command: "go test ./..."` |
 
-### Шаг 3: Собери параметры
-Спроси у пользователя детали для выбранного типа. Сформируй JSON params.
+### Step 3: Collect parameters
+Ask the user for details for the chosen type. Build JSON params.
 
-### Шаг 4: Спроси severity и priority
-- `block` (по умолчанию) / `warn` / `audit`
-- Priority: 1-100 (по умолчанию 10)
+### Step 4: Ask severity and priority
+- `block` (default) / `warn` / `audit`
+- Priority: 1-100 (default 10)
 
-### Шаг 5: Покажи превью и создай
-Покажи пользователю итоговую команду, спроси подтверждение, выполни:
+### Step 5: Show preview and create
+Show the final command to the user, ask for confirmation, execute:
 ```bash
 constitution rules add \
   --id=RULE_ID \
@@ -148,47 +148,47 @@ constitution rules add \
   --message="Message"
 ```
 
-### Шаг 6: Валидация
+### Step 6: Validate
 ```bash
 constitution validate
 ```
 
-## 3. Просмотр правил (`list`, `rules`)
+## 3. View Rules (`list`, `rules`)
 
 ```bash
 constitution rules list --json
 ```
-Покажи в виде отформатированной таблицы. Предложи действия: добавить/удалить/изменить.
+Show as a formatted table. Offer actions: add/delete/modify.
 
-## 4. Валидация (`validate`)
+## 4. Validate (`validate`)
 
 ```bash
 constitution validate
 ```
-Покажи результат. Если есть ошибки — предложи исправить.
+Show result. If errors — offer to fix.
 
-## 5. Диагностика (`diagnose`)
+## 5. Diagnose (`diagnose`)
 
-Проверь по порядку:
+Check in order:
 ```bash
-which constitution                              # 1. Бинарник доступен
-constitution version                             # 2. Версия
-ls .constitution.yaml                            # 3. Конфиг существует
-cat .claude/settings.json                        # 4. Хуки установлены
-constitution validate                            # 5. Конфиг валиден
-constitution rules list --json                   # 6. Правила загружаются
+which constitution                              # 1. Binary available
+constitution version                             # 2. Version
+ls .constitution.yaml                            # 3. Config exists
+cat .claude/settings.json                        # 4. Hooks installed
+constitution validate                            # 5. Config valid
+constitution rules list --json                   # 6. Rules load
 ```
-Сообщи результат каждого шага и предложи исправления.
+Report each step's result and suggest fixes.
 
-## 6. Управление хуками (`hooks`)
+## 6. Manage Hooks (`hooks`)
 
-Покажи текущие хуки:
+Show current hooks:
 ```bash
 cat .claude/settings.json
 ```
-Предложи: добавить недостающие, обновить timeout, переустановить.
+Offer: add missing hooks, update timeouts, reinstall.
 
-## Справка по параметрам check types
+## Check Type Parameters Reference
 
 ### cmd_validate
 ```json
@@ -209,8 +209,8 @@ cat .claude/settings.json
 ```json
 {"expression": "tool_input.command.contains(\"git push\") && tool_input.command.contains(\"main\")"}
 ```
-Переменные: `session_id`, `cwd`, `hook_event_name`, `tool_name`, `tool_input` (map), `prompt`, `permission_mode`, `last_assistant_message`
-Функции: `path_match(p,s)`, `regex_match(p,s)`, `is_within(path,base)`
+Variables: `session_id`, `cwd`, `hook_event_name`, `tool_name`, `tool_input` (map), `prompt`, `permission_mode`, `last_assistant_message`
+Functions: `path_match(p,s)`, `regex_match(p,s)`, `is_within(path,base)`
 
 ### cmd_check
 ```json
@@ -242,31 +242,31 @@ cat .claude/settings.json
 {"binary": "detect-secrets", "plugins": [{"name": "AWSKeyDetector"}, {"name": "GitHubTokenDetector"}]}
 ```
 
-## Паттерны оркестрации
+## Orchestration Patterns
 
-Готовые конфигурации для управления поведением агента:
+Ready-made configurations for agent behavior management:
 
-| Паттерн | Команда | Что делает |
-|---------|---------|-----------|
-| **Autonomous** | `constitution init --workflow autonomous` | Полная автономность, self-critique, safety guardrails |
-| **Plan-First** | `constitution init --workflow plan-first` | Обязательное планирование перед реализацией, Stop gates |
-| **OODA Loop** | `constitution init --workflow ooda-loop` | Цикл Observe→Orient→Decide→Act, рефлексия |
-| **Strict Security** | `constitution init --workflow strict-security` | Максимальная защита: секреты, ACL, расширенные блокировки |
+| Pattern | Command | What it does |
+|---------|---------|-------------|
+| **Autonomous** | `constitution init --workflow autonomous` | Full autonomy, self-critique, safety guardrails |
+| **Plan-First** | `constitution init --workflow plan-first` | Mandatory planning before implementation, Stop gates |
+| **OODA Loop** | `constitution init --workflow ooda-loop` | Observe->Orient->Decide->Act cycle, reflection |
+| **Strict Security** | `constitution init --workflow strict-security` | Maximum protection: secrets, ACL, extended blocklists |
 
-Каждый паттерн — полный `.constitution.yaml`. Можно комбинировать: создать паттерн как базу, потом добавить правила через `constitution rules add`.
+Each pattern is a complete `.constitution.yaml`. You can combine: create a pattern as a base, then add rules via `constitution rules add`.
 
-При выборе паттерна для пользователя:
-- Разработчик хочет работать быстро → **autonomous**
-- Команда требует процесс → **plan-first**
-- Нужен аналитический подход → **ooda-loop**
-- Работа с чувствительными данными → **strict-security**
+When choosing a pattern for the user:
+- Developer wants speed → **autonomous**
+- Team requires process → **plan-first**
+- Analytical approach needed → **ooda-loop**
+- Working with sensitive data → **strict-security**
 
 ## Hook Events
 
-| Event | Когда | tool_match |
-|-------|-------|-----------|
-| `SessionStart` | Начало сессии | нет |
-| `UserPromptSubmit` | Промпт пользователя | нет |
-| `PreToolUse` | Перед инструментом | Bash, Read, Write, Edit, Glob, Grep |
-| `PostToolUse` | После инструмента | Bash, Read, Write, Edit, Glob, Grep |
-| `Stop` | Остановка агента | нет |
+| Event | When | tool_match |
+|-------|------|-----------|
+| `SessionStart` | Session begins | none |
+| `UserPromptSubmit` | User sends prompt | none |
+| `PreToolUse` | Before tool call | Bash, Read, Write, Edit, Glob, Grep |
+| `PostToolUse` | After tool call | Bash, Read, Write, Edit, Glob, Grep |
+| `Stop` | Agent stopping | none |
