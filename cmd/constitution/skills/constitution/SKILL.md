@@ -2,12 +2,12 @@
 name: constitution
 description: "Full setup and management of AI agent constitutional rules. Use when the user asks to: set up constitution, install hooks, create/edit/delete rules, validate config, diagnose issues, or manage any aspect of agent behavior constraints. This is the complete wizard for the constitution framework."
 allowed-tools: Bash(constitution *), Bash(go build *), Bash(go install *), Bash(go test *), Bash(make *), Bash(gh *), Bash(git *), Bash(which *), Bash(cat *), Bash(ls *), Bash(mkdir *), Read, Write, Edit, Glob, Grep
-argument-hint: "[action: setup|init|rules|validate|diagnose|add-rule|hooks]"
+argument-hint: "[action: setup|rules|validate|diagnose|add-rule|hooks]"
 ---
 
 # Constitution — Full AI Agent Rule Management Wizard
 
-You are a wizard for configuring constitution, a constitutional rule framework for Claude Code. You can do EVERYTHING: from scratch installation to fine-tuning individual rules.
+You are a wizard for configuring constitution, a constitutional rule framework for AI coding agents (Claude Code and OpenAI Codex). You can do EVERYTHING: from scratch installation to fine-tuning individual rules.
 
 ## Determine the Action
 
@@ -15,7 +15,7 @@ Based on `$ARGUMENTS`, determine the action. If no arguments — show the menu:
 
 ```
 What would you like to do?
-1. Full setup from scratch (init + hooks + skills)
+1. Full setup from scratch (config + hooks + skills)
 2. Add a rule
 3. Show current rules
 4. Validate configuration
@@ -25,83 +25,58 @@ What would you like to do?
 
 ## 1. Full Setup from Scratch (`setup`)
 
-Step-by-step process:
+`constitution setup` is a 7-step wizard that handles everything: platform selection, remote server, security rules, orchestration patterns, stop validation, skills, and installation.
 
-### Step 0: Determine platform
-Ask the user which platform they use:
-- **Claude Code** (default): `constitution setup --platform claude`
-- **OpenAI Codex**: `constitution setup --platform codex`
-
-### Step 1: Check prerequisites
+### Step 0: Check prerequisites
 ```bash
 which constitution    # Binary available?
 constitution version  # Version
 ```
 If not found — suggest: `go install github.com/legostin/constitution/cmd/constitution@latest`
 
-### Step 2: Initialize config
-Check if `.constitution.yaml` exists:
-```bash
-ls -la .constitution.yaml 2>/dev/null
-```
-If not — ask the user which pattern they need:
+### Step 1: Run the setup wizard
 
+**Interactive mode** (recommended for first-time users):
 ```bash
-# Basic templates:
-constitution init --template full       # All check types with examples
-constitution init --template minimal    # Secrets + command validation only
-
-# Orchestration patterns:
-constitution init --workflow autonomous       # Full autonomy + guardrails
-constitution init --workflow plan-first       # Plan -> Execute -> Test
-constitution init --workflow ooda-loop        # OODA: Observe -> Orient -> Decide -> Act
-constitution init --workflow ralph-loop       # Continuous autonomous loop until PRD complete
-constitution init --workflow strict-security  # Maximum protection
+constitution setup
 ```
 
-### Step 3: Install hooks
-Check current hooks:
+The wizard walks through 7 steps:
+1. **Platform** — Claude Code, OpenAI Codex, or both
+2. **Remote server** — optional centralized rule server for teams
+3. **Security rules** — checklist of protections (secrets, commands, directories, branches, repo access)
+4. **Orchestration pattern** — autonomous, plan-first, ooda-loop, ralph-loop, or strict-security
+5. **Stop validation** — what the agent must verify before stopping (build, tests, commit)
+6. **Skills** — installs the `/constitution` slash command
+7. **Install** — writes `.constitution.yaml`, hooks, and skills to project or user scope
+
+**Non-interactive mode** (CI, scripting, or quick setup with defaults):
 ```bash
-cat .claude/settings.json 2>/dev/null
-```
-If no hooks — install them. Determine the binary path:
-```bash
-which constitution || echo "$HOME/go/bin/constitution"
-```
-Create `.claude/settings.json` with hooks for all events. Use the **absolute path** to the binary. Template:
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {"matcher": "", "hooks": [{"type": "command", "command": "BINARY_PATH", "timeout": 5}]}
-    ],
-    "UserPromptSubmit": [
-      {"matcher": "", "hooks": [{"type": "command", "command": "BINARY_PATH", "timeout": 5}]}
-    ],
-    "PreToolUse": [
-      {"matcher": "Bash", "hooks": [{"type": "command", "command": "BINARY_PATH", "timeout": 5}]},
-      {"matcher": "Read|Write|Edit", "hooks": [{"type": "command", "command": "BINARY_PATH", "timeout": 5}]},
-      {"matcher": "Glob|Grep", "hooks": [{"type": "command", "command": "BINARY_PATH", "timeout": 3}]}
-    ],
-    "Stop": [
-      {"matcher": "", "hooks": [{"type": "command", "command": "BINARY_PATH", "timeout": 180}]}
-    ]
-  }
-}
+constitution setup --yes                                    # All defaults (Claude Code, project scope, default security)
+constitution setup --platform codex --scope project --yes   # Codex, project-level
+constitution setup --platform both --scope user --yes       # Both platforms, user-level
+constitution setup --workflow ooda-loop --yes               # With orchestration pattern
+constitution setup --security all --yes                     # All security rules enabled
+constitution setup --security minimal --yes                 # Secrets + command validation only
+constitution setup --security none --yes                    # No security rules
 ```
 
-### Step 4: Install skills
-```bash
-constitution skill install --scope project --quiet
-```
+**Available flags:**
+| Flag | Values | Default |
+|------|--------|---------|
+| `--platform` | `claude`, `codex`, `both` | interactive prompt |
+| `--scope` | `user`, `project` | interactive prompt |
+| `--workflow` | `autonomous`, `plan-first`, `ooda-loop`, `ralph-loop`, `strict-security` | none |
+| `--security` | `all`, `minimal`, `none` | interactive checklist |
+| `--yes` | (boolean) | false (interactive) |
 
-### Step 5: Validate
+### Step 2: Validate
 ```bash
 constitution validate
 ```
 
-### Step 6: Suggest restart
-Tell the user: "Restart Claude Code to activate hooks (`/exit` and start again)."
+### Step 3: Suggest restart
+Tell the user: "Restart your agent to activate hooks (`/exit` and start again)."
 
 ## 2. Add a Rule (`add-rule`, `rules`)
 
@@ -166,6 +141,18 @@ constitution rules list --json
 ```
 Show as a formatted table. Offer actions: add/delete/modify.
 
+Interactive rule manager:
+```bash
+constitution rules           # Interactive main menu
+constitution rules list      # Show all rules (--json for machine output)
+constitution rules add       # Step-by-step rule creation wizard
+constitution rules edit <id> # Edit a rule (by ID or number)
+constitution rules delete <id>  # Delete a rule (by ID or number)
+constitution rules toggle <id>  # Enable/disable a rule (by ID or number)
+```
+
+Rules can be referenced by their string ID or by their 1-based numeric index as shown in `rules list`.
+
 ## 4. Validate (`validate`)
 
 ```bash
@@ -180,9 +167,10 @@ Check in order:
 which constitution                              # 1. Binary available
 constitution version                             # 2. Version
 ls .constitution.yaml                            # 3. Config exists
-cat .claude/settings.json                        # 4. Hooks installed
-constitution validate                            # 5. Config valid
-constitution rules list --json                   # 6. Rules load
+cat .claude/settings.json                        # 4. Hooks installed (Claude Code)
+cat .codex/hooks.json                            # 5. Hooks installed (Codex)
+constitution validate                            # 6. Config valid
+constitution rules list --json                   # 7. Rules load
 ```
 Report each step's result and suggest fixes.
 
@@ -190,9 +178,20 @@ Report each step's result and suggest fixes.
 
 Show current hooks:
 ```bash
-cat .claude/settings.json
+cat .claude/settings.json    # Claude Code
+cat .codex/hooks.json        # OpenAI Codex
 ```
 Offer: add missing hooks, update timeouts, reinstall.
+
+To reinstall hooks, run `constitution setup` again — it merges hooks non-destructively (removes old constitution hooks, adds new ones, preserves other hooks).
+
+To remove all constitution hooks:
+```bash
+constitution uninstall                          # Project-level, all platforms
+constitution uninstall --scope user             # User-level
+constitution uninstall --platform claude        # Claude Code only
+constitution uninstall --platform codex         # Codex only
+```
 
 ## Check Type Parameters Reference
 
@@ -254,20 +253,20 @@ Ready-made configurations for agent behavior management:
 
 | Pattern | Command | What it does |
 |---------|---------|-------------|
-| **Autonomous** | `constitution init --workflow autonomous` | Full autonomy, self-critique, safety guardrails |
-| **Plan-First** | `constitution init --workflow plan-first` | Mandatory planning before implementation, Stop gates |
-| **OODA Loop** | `constitution init --workflow ooda-loop` | Observe->Orient->Decide->Act cycle, reflection |
-| **Ralph Loop** | `constitution init --workflow ralph-loop` | Continuous autonomous loop until all PRD tasks complete |
-| **Strict Security** | `constitution init --workflow strict-security` | Maximum protection: secrets, ACL, extended blocklists |
+| **Autonomous** | `constitution setup --workflow autonomous` | Full autonomy, self-critique, safety guardrails |
+| **Plan-First** | `constitution setup --workflow plan-first` | Mandatory planning before implementation, Stop gates |
+| **OODA Loop** | `constitution setup --workflow ooda-loop` | Observe->Orient->Decide->Act cycle, reflection |
+| **Ralph Loop** | `constitution setup --workflow ralph-loop` | Continuous autonomous loop until all PRD tasks complete |
+| **Strict Security** | `constitution setup --workflow strict-security` | Maximum protection: secrets, ACL, extended blocklists |
 
-Each pattern is a complete `.constitution.yaml`. You can combine: create a pattern as a base, then add rules via `constitution rules add`.
+Each pattern is applied during `constitution setup` and combined with your chosen security rules. You can further customize by adding rules via `constitution rules add`.
 
 When choosing a pattern for the user:
-- Developer wants speed → **autonomous**
-- Team requires process → **plan-first**
-- Analytical approach needed → **ooda-loop**
-- Long-running autonomous tasks from PRD → **ralph-loop**
-- Working with sensitive data → **strict-security**
+- Developer wants speed -> **autonomous**
+- Team requires process -> **plan-first**
+- Analytical approach needed -> **ooda-loop**
+- Long-running autonomous tasks from PRD -> **ralph-loop**
+- Working with sensitive data -> **strict-security**
 
 ## Hook Events
 

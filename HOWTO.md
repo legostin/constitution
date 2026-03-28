@@ -1,6 +1,6 @@
 # How To — Constitution
 
-A practical guide to usage scenarios.
+A practical guide to using Constitution, the rule-enforcement layer for AI coding agents.
 
 ---
 
@@ -12,60 +12,66 @@ A practical guide to usage scenarios.
 # 1. Install the binary
 go install github.com/legostin/constitution/cmd/constitution@latest
 
-# 2. Create a config
-constitution init
-# Choose a template: Full or Minimal
-
-# 3. Install hooks in Claude Code
+# 2. Run the setup wizard (config + hooks + skills — all in one step)
 constitution setup
-# Select hooks via checklist, specify scope (user/project)
 
-# 4. Verify
+# 3. Verify
 constitution validate
 # ✓ .constitution.yaml
 #   10 rules (7 enabled)
 
-# 5. Restart Claude Code
+# 4. Restart your agent
 ```
 
-### Setup for OpenAI Codex
+`constitution setup` is a 7-step interactive wizard that:
+1. Asks which platform you use (Claude Code, OpenAI Codex, or both)
+2. Optionally connects to a remote rule server
+3. Selects security rules (secret detection, command blocking, directory ACLs)
+4. Picks an orchestration pattern (autonomous, plan-first, OODA loop, etc.)
+5. Configures stop validation (what the agent must verify before finishing)
+6. Installs the `/constitution` skill into your agent
+7. Writes everything: `.constitution.yaml`, platform hooks, skill files
 
-Constitution also supports OpenAI Codex hooks (same rule engine, same config format):
+### Non-interactive setup
+
+For CI, scripts, or when you know what you want:
 
 ```bash
-# 1. Install the binary (same as Claude Code)
-go install github.com/legostin/constitution/cmd/constitution@latest
+# Accept all defaults — project scope, default security rules, no orchestration
+constitution setup --yes --scope project
 
-# 2. Create a config (same .constitution.yaml)
-constitution init
-
-# 3. Install hooks for Codex
-constitution setup --platform codex --scope project
-# Hooks written to .codex/hooks.json
-
-# 4. Enable hooks in Codex config.toml
-# codex_hooks = true
-
-# 5. Restart Codex
+# Specify everything explicitly
+constitution setup --platform claude --scope project --workflow ooda-loop --security all --yes
 ```
 
-**Codex limitations:**
-- Only `Bash` tool is supported (no Read/Write/Edit/Glob/Grep matchers)
-- Config is standalone `.codex/hooks.json` (not embedded in settings)
-- Feature must be enabled via `codex_hooks = true` in `config.toml`
+Available flags:
 
-All rules and check types work identically on both platforms.
+| Flag | Values | Default |
+|------|--------|---------|
+| `--platform` | `claude`, `codex`, `both` | interactive |
+| `--scope` | `user`, `project` | interactive |
+| `--workflow` | `autonomous`, `plan-first`, `ooda-loop`, `ralph-loop`, `strict-security` | none |
+| `--security` | `all`, `minimal`, `none` | interactive |
+| `--yes` | (boolean) | `false` |
+
+### Orchestration patterns
+
+The `--workflow` flag injects orchestration rules that shape how the agent works:
+
+| Pattern | Description |
+|---------|-------------|
+| `autonomous` | Full autonomy with self-critique and guardrails |
+| `plan-first` | Plan, then execute, then test |
+| `ooda-loop` | Observe, orient, decide, act cycle |
+| `ralph-loop` | Continuous autonomous loop until PRD is complete |
+| `strict-security` | Maximum protection with extended blocklists |
 
 ### Installing for all projects (globally)
 
-To make constitution work for any project on the machine, not just the current one:
+To make Constitution work for any project on the machine:
 
 ```bash
-# 1. Hooks — in user-level settings (apply to all projects)
 constitution setup --scope user
-
-# 2. Config — in the home directory
-constitution init --output ~/.config/constitution/constitution.yaml
 ```
 
 Configs follow the principle of constitutional hierarchy — **the more global the level, the higher its authority**:
@@ -95,25 +101,6 @@ constitution validate
 #     [user] /Users/you/.config/constitution/constitution.yaml
 #     [project] /Users/you/work/project-a/.constitution.yaml
 #   ✓ Merged: 12 rules (9 enabled) from 2 sources
-```
-
-### Connecting to a company server
-
-If the Platform team has already set up a server:
-
-```bash
-# One command — creates config + installs hooks
-constitution setup --remote https://constitution.company.com
-
-# Or step by step
-constitution init --remote https://constitution.company.com
-constitution setup
-```
-
-If authorization is required — set the token:
-
-```bash
-export CONSTITUTION_TOKEN="your-token"
 ```
 
 ### Testing rules
@@ -168,7 +155,7 @@ Available `testCase` fields:
 
 #### Manual testing (ad-hoc)
 
-No need to run Claude Code — you can pipe JSON directly:
+No need to run your agent — you can pipe JSON directly:
 
 ```bash
 # Test: dangerous command
@@ -196,11 +183,11 @@ echo '{
 ```
 
 ```bash
-# Test: secret in a file
+# Test: secret in a file (use a real-looking key, not the example key)
 echo '{
   "hook_event_name": "PreToolUse",
   "tool_name": "Write",
-  "tool_input": {"file_path": "config.go", "content": "key = AKIAIOSFODNN7ABCDEFG"},
+  "tool_input": {"file_path": "config.go", "content": "key = <YOUR_AWS_ACCESS_KEY>"},
   "cwd": "'$(pwd)'"
 }' | constitution
 
@@ -219,70 +206,6 @@ echo '{
 # Empty output = allowed
 ```
 
-#### Live testing with Claude Code
-
-To verify real integration, install hooks at the project level:
-
-```bash
-constitution setup --scope project
-# Or manually: create .claude/settings.json (see below)
-```
-
-Example `.claude/settings.json` with a full set of hooks:
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      { "matcher": "", "hooks": [{ "type": "command", "command": "constitution", "timeout": 5 }] }
-    ],
-    "UserPromptSubmit": [
-      { "matcher": "", "hooks": [{ "type": "command", "command": "constitution", "timeout": 5 }] }
-    ],
-    "PreToolUse": [
-      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "constitution", "timeout": 5 }] },
-      { "matcher": "Read|Write|Edit", "hooks": [{ "type": "command", "command": "constitution", "timeout": 5 }] },
-      { "matcher": "Glob|Grep", "hooks": [{ "type": "command", "command": "constitution", "timeout": 3 }] }
-    ]
-  }
-}
-```
-
-After creating the file, restart Claude Code and try blocked actions (reading `.env`, dangerous commands, etc.).
-
-### What to do when a hook blocks
-
-1. **Read the reason** — the message in `permissionDecisionReason` explains which rule was triggered
-2. **Find the rule** — open `.constitution.yaml`, search by rule name
-3. **Verify manually** — pipe the same JSON input (see above)
-4. **Logs** — if `log_file` is set in the config, check there:
-   ```yaml
-   settings:
-     log_level: debug
-     log_file: /tmp/constitution.log
-   ```
-
-### Temporarily disabling constitution
-
-**Option 1**: Disable a specific rule in the config:
-```yaml
-rules:
-  - id: cmd-validate
-    enabled: false    # <- was true
-```
-
-**Option 2**: Remove hooks from Claude Code:
-```bash
-constitution uninstall
-# Then restore: constitution setup
-```
-
-**Option 3**: Rename the config:
-```bash
-mv .constitution.yaml .constitution.yaml.disabled
-# Without a config, constitution allows everything (exit 0)
-```
-
 ### Troubleshooting
 
 **Config not found:**
@@ -291,7 +214,7 @@ constitution validate
 # ✗ No config file found
 
 # Check:
-ls -la .constitution.yaml .claude/constitution.yaml
+ls -la .constitution.yaml
 # Or specify explicitly:
 constitution validate --config path/to/config.yaml
 ```
@@ -299,13 +222,16 @@ constitution validate --config path/to/config.yaml
 **Hooks not firing:**
 1. Verify that hooks are installed:
    ```bash
-   cat ~/.claude/settings.json | grep constitution
+   # Claude Code
+   cat .claude/settings.json | grep constitution
+   # Codex
+   cat .codex/hooks.json | grep constitution
    ```
 2. Verify that the binary is accessible:
    ```bash
    which constitution
    ```
-3. Restart Claude Code (hooks are loaded at session start)
+3. Restart your agent (hooks are loaded at session start)
 
 **detect-secrets not installed (for secret_yelp):**
 ```bash
@@ -318,6 +244,83 @@ pip3 install detect-secrets
 detect-secrets --version
 ```
 Without detect-secrets, `secret_yelp` rules with severity `block` will block all actions (fail-closed). Install the utility or disable the rule. Built-in `secret_regex` rules always work.
+
+**What to do when a hook blocks:**
+
+1. **Read the reason** — the message in `permissionDecisionReason` explains which rule was triggered
+2. **Find the rule** — open `.constitution.yaml`, search by rule name
+3. **Verify manually** — pipe the same JSON input (see manual testing above)
+4. **Logs** — if `log_file` is set in the config, check there:
+   ```yaml
+   settings:
+     log_level: debug
+     log_file: /tmp/constitution.log
+   ```
+
+### Temporarily disabling Constitution
+
+**Option 1**: Disable a specific rule in the config:
+```yaml
+rules:
+  - id: cmd-validate
+    enabled: false    # <- was true
+```
+
+**Option 2**: Remove hooks:
+```bash
+constitution uninstall
+# Then restore: constitution setup
+```
+
+**Option 3**: Rename the config:
+```bash
+mv .constitution.yaml .constitution.yaml.disabled
+# Without a config, constitution allows everything (exit 0)
+```
+
+---
+
+## For Codex users
+
+Constitution supports OpenAI Codex with the same rule engine and the same config format.
+
+### Setup
+
+```bash
+# 1. Install the binary
+go install github.com/legostin/constitution/cmd/constitution@latest
+
+# 2. Run setup with --platform codex
+constitution setup --platform codex
+
+# 3. Enable hooks in Codex config.toml
+# codex_hooks = true
+
+# 4. Restart Codex
+```
+
+Non-interactive:
+```bash
+constitution setup --platform codex --scope project --yes
+```
+
+### Codex limitations
+
+- Only `Bash` tool is supported (no Read/Write/Edit/Glob/Grep matchers)
+- Config is standalone `.codex/hooks.json` (not embedded in settings)
+- Feature must be enabled via `codex_hooks = true` in `config.toml`
+
+All rules and check types work identically on both platforms.
+
+### Dual platform setup
+
+To install hooks for both Claude Code and Codex at once:
+
+```bash
+constitution setup --platform both
+```
+
+This writes hooks to both `.claude/settings.json` and `.codex/hooks.json` and shares a single `.constitution.yaml`.
 
 ---
 
@@ -414,139 +417,21 @@ curl http://localhost:8081/api/v1/health
 #### Step 4: Distribute to developers
 
 Send to the team:
-```
-constitution setup --remote https://constitution.company.com
+```bash
+constitution setup
+# When prompted for remote server URL, enter: https://constitution.company.com
 export CONSTITUTION_TOKEN="..."
 ```
 
 ### Writing rules
 
-#### Block secrets
-
-```yaml
-- id: secret-scan
-  enabled: true
-  priority: 1
-  severity: block
-  hook_events: [PreToolUse]
-  tool_match: [Write, Edit]
-  check:
-    type: secret_regex
-    params:
-      scan_field: content
-      patterns:
-        - { name: "AWS Key", regex: "AKIA[0-9A-Z]{16}" }
-        - { name: "GitHub Token", regex: "gh[ps]_[A-Za-z0-9_]{36,}" }
-      allow_patterns:
-        - "AKIAIOSFODNN7EXAMPLE"          # AWS example key
-        - "(?i)test|example|dummy"         # Test values
-```
-
-#### Restrict directories
-
-```yaml
-- id: dir-guard
-  enabled: true
-  priority: 2
-  severity: block
-  hook_events: [PreToolUse]
-  tool_match: [Read, Write, Edit, Glob, Grep]
-  check:
-    type: dir_acl
-    params:
-      mode: denylist
-      path_field: auto
-      patterns:
-        - "~/.ssh/**"
-        - "~/.aws/**"
-        - "/etc/**"
-        - "**/.env"
-        - "**/*.pem"
-      allow_within_project: true        # Allow within CWD
-```
-
-#### Block dangerous commands
-
-```yaml
-- id: cmd-block
-  enabled: true
-  priority: 1
-  severity: block
-  hook_events: [PreToolUse]
-  tool_match: [Bash]
-  check:
-    type: cmd_validate
-    params:
-      deny_patterns:
-        - { name: "Root deletion", regex: "rm\\s+-rf\\s+/" }
-        - { name: "Force push", regex: "\\bgit\\s+push\\s+.*--force" }
-        - { name: "Hard reset", regex: "\\bgit\\s+reset\\s+--hard" }
-        - { name: "Chmod 777", regex: "chmod\\s+777" }
-        - { name: "Pipe to shell", regex: "curl.*\\|\\s*(bash|sh)" }
-      allow_patterns:
-        - { name: "Apt exception", regex: "sudo\\s+(apt|brew)" }
-```
-
-#### CEL for complex logic
-
-```yaml
-# Block git push to main/master
-- id: no-main-push
-  enabled: true
-  priority: 1
-  severity: block
-  hook_events: [PreToolUse]
-  tool_match: [Bash]
-  check:
-    type: cel
-    params:
-      expression: >
-        tool_input.command.contains("git push") &&
-        (tool_input.command.contains("main") || tool_input.command.contains("master"))
-
-# Block SQL DROP in .sql files
-- id: no-drop
-  enabled: true
-  priority: 1
-  severity: block
-  hook_events: [PreToolUse]
-  tool_match: [Write]
-  check:
-    type: cel
-    params:
-      expression: >
-        tool_input.file_path.endsWith(".sql") &&
-        tool_input.content.contains("DROP")
-```
-
-CEL variables: `session_id`, `cwd`, `hook_event_name`, `tool_name`, `tool_input` (map), `prompt`, `permission_mode`, `last_assistant_message`.
-
-CEL functions: `path_match(pattern, path)`, `regex_match(pattern, str)`, `is_within(path, base)`.
-
-#### Inject company standards
-
-```yaml
-- id: standards
-  enabled: true
-  priority: 10
-  severity: audit
-  hook_events: [SessionStart]
-  check:
-    type: skill_inject
-    params:
-      context: |
-        Follow ACME Corp standards:
-        - Structured logging with slog
-        - Table-driven tests
-      # Or load from a file:
-      context_file: ".claude/company-standards.md"
-```
+See the Recipes section below for rule patterns covering secrets, commands, directories, CEL expressions, stop checks, and prompt injection defense.
 
 ### Rolling out rules to a team
 
 **Option A — Remote server** (recommended):
-- Rules live on the server, developers connect via `constitution setup --remote URL`
-- Updating: modify the YAML -> redeploy the container
+- Rules live on the server, developers connect during `constitution setup`
+- Updating: modify the YAML, redeploy the container
 - Developers receive new rules on the next hook invocation
 
 **Option B — Config in the repository**:
@@ -556,10 +441,10 @@ CEL functions: `path_match(pattern, path)`, `regex_match(pattern, str)`, `is_wit
 
 ### Updating rules
 
-Claude Code hooks read the config on every invocation (no caching). Therefore:
+The agent hooks read the config on every invocation (no caching). Therefore:
 
-- **Local config**: edit the file -> the next hook invocation already uses the new rules. No Claude Code restart needed.
-- **Remote server**: update the container -> clients receive new rules on the next request to `/api/v1/evaluate`.
+- **Local config**: edit the file and the next hook invocation already uses the new rules. No agent restart needed.
+- **Remote server**: update the container and clients receive new rules on the next request to `/api/v1/evaluate`.
 
 ### Monitoring
 
@@ -664,6 +549,18 @@ func main() {
 }
 ```
 
+### HTTP plugin
+
+```yaml
+plugins:
+  - name: "compliance-api"
+    type: http
+    url: "https://compliance.internal/api/check"
+    timeout: 5000
+```
+
+The HTTP plugin receives the same JSON payload as a POST body and must return the same response format.
+
 ### Protocol
 
 **Stdin** (JSON):
@@ -739,9 +636,104 @@ plugins:
 
 ## Recipes
 
-### Block push to main
+### Block dangerous commands
 
 ```yaml
+- id: cmd-block
+  name: "Command Validation"
+  enabled: true
+  priority: 1
+  severity: block
+  hook_events: [PreToolUse]
+  tool_match: [Bash]
+  check:
+    type: cmd_validate
+    params:
+      deny_patterns:
+        - { name: "Root deletion", regex: "rm\\s+-rf\\s+/" }
+        - { name: "Force push", regex: "\\bgit\\s+push\\s+.*--force" }
+        - { name: "Hard reset", regex: "\\bgit\\s+reset\\s+--hard" }
+        - { name: "Chmod 777", regex: "chmod\\s+777" }
+        - { name: "Pipe to shell", regex: "curl.*\\|\\s*(bash|sh)" }
+        - { name: "Drop database", regex: "\\bdrop\\s+database\\b", case_insensitive: true }
+      allow_patterns:
+        - { name: "Apt exception", regex: "sudo\\s+(apt|brew)" }
+```
+
+### Block secret files and detect secrets in writes
+
+```yaml
+# Block reading secret files
+- id: secret-read
+  name: "Block Secret Files"
+  enabled: true
+  priority: 1
+  severity: block
+  hook_events: [PreToolUse]
+  tool_match: [Read]
+  check:
+    type: dir_acl
+    params:
+      mode: denylist
+      path_field: file_path
+      patterns:
+        - "**/.env"
+        - "**/.env.*"
+        - "**/credentials.json"
+        - "**/service-account*.json"
+        - "**/*.pem"
+        - "**/*.key"
+
+# Detect secrets in file writes
+- id: secret-write
+  name: "Secret Detection"
+  enabled: true
+  priority: 1
+  severity: block
+  hook_events: [PreToolUse]
+  tool_match: [Write, Edit]
+  check:
+    type: secret_regex
+    params:
+      scan_field: content
+      patterns:
+        - { name: "AWS Key", regex: "AKIA[0-9A-Z]{16}" }
+        - { name: "GitHub Token", regex: "gh[ps]_[A-Za-z0-9_]{36,}" }
+        - { name: "Private Key", regex: "-----BEGIN .* PRIVATE KEY-----" }
+      allow_patterns:
+        - "<known-example-key-placeholder>"   # AWS example key
+        - "(?i)test|example|dummy"            # Test values
+```
+
+### Restrict directories
+
+```yaml
+- id: dir-guard
+  name: "Directory ACL"
+  enabled: true
+  priority: 2
+  severity: block
+  hook_events: [PreToolUse]
+  tool_match: [Read, Write, Edit, Glob, Grep]
+  check:
+    type: dir_acl
+    params:
+      mode: denylist
+      path_field: auto
+      patterns:
+        - "~/.ssh/**"
+        - "~/.aws/**"
+        - "/etc/**"
+        - "/var/**"
+        - "~/.config/gcloud/**"
+        - "../**"
+      allow_within_project: true        # Allow within CWD
+```
+
+### CEL for complex logic
+
+```yaml
+# Block git push to main/master
 - id: no-main-push
   name: "Block main push"
   enabled: true
@@ -755,6 +747,119 @@ plugins:
       expression: >
         tool_input.command.contains("git push") &&
         (tool_input.command.contains("main") || tool_input.command.contains("master"))
+
+# Block SQL DROP in .sql files
+- id: no-drop
+  name: "Block DROP in SQL"
+  enabled: true
+  priority: 1
+  severity: block
+  hook_events: [PreToolUse]
+  tool_match: [Write]
+  check:
+    type: cel
+    params:
+      expression: >
+        tool_input.file_path.endsWith(".sql") &&
+        tool_input.content.contains("DROP")
+```
+
+CEL variables: `session_id`, `cwd`, `hook_event_name`, `tool_name`, `tool_input` (map), `prompt`, `permission_mode`, `last_assistant_message`.
+
+CEL functions: `path_match(pattern, path)`, `regex_match(pattern, str)`, `is_within(path, base)`.
+
+### Stop validation (prompt-based)
+
+The recommended approach is prompt-based: tell the agent what to verify, and it figures out the right commands for your stack. The setup wizard generates this automatically.
+
+```yaml
+- id: stop-validation
+  name: "Stop Validation"
+  enabled: true
+  priority: 10
+  severity: block
+  hook_events: [Stop]
+  message: "Verify the project builds and all tests pass. Commit all changes. Include VERIFIED_COMPLETE in your final message."
+  check:
+    type: cel
+    params:
+      expression: >
+        hook_event_name == "Stop" &&
+        !last_assistant_message.contains("VERIFIED_COMPLETE")
+```
+
+The agent will not be allowed to stop until it includes `VERIFIED_COMPLETE` in its final message, which it should only do after genuinely verifying the build, tests, and committing changes.
+
+### Stop validation (git checks)
+
+For hard requirements that should not depend on agent compliance, use `cmd_check`:
+
+```yaml
+# No uncommitted changes
+- id: stop-committed
+  name: "No Uncommitted Changes"
+  enabled: true
+  priority: 3
+  severity: block
+  hook_events: [Stop]
+  message: "Uncommitted changes. Commit before stopping."
+  check:
+    type: cmd_check
+    params:
+      command: "git diff --quiet && git diff --cached --quiet"
+      working_dir: project
+      timeout: 5000
+
+# Branch pushed to remote
+- id: stop-pushed
+  name: "Branch Must Be Pushed"
+  enabled: true
+  priority: 4
+  severity: block
+  hook_events: [Stop]
+  message: "Branch not pushed."
+  check:
+    type: cmd_check
+    params:
+      command: >
+        BRANCH=$(git rev-parse --abbrev-ref HEAD);
+        git fetch origin $BRANCH --quiet 2>/dev/null;
+        git diff --quiet $BRANCH..origin/$BRANCH 2>/dev/null
+      working_dir: project
+      timeout: 10000
+
+# PR exists for current branch
+- id: stop-pr-exists
+  name: "PR Must Exist"
+  enabled: true
+  priority: 5
+  severity: block
+  hook_events: [Stop]
+  message: "No PR found. Create a PR before stopping."
+  check:
+    type: cmd_check
+    params:
+      command: >
+        BRANCH=$(git rev-parse --abbrev-ref HEAD);
+        if [ "$BRANCH" = 'main' ] || [ "$BRANCH" = 'master' ]; then exit 0; fi;
+        gh pr view --json state -q '.state' 2>/dev/null | grep -qE 'OPEN|MERGED'
+      working_dir: project
+      timeout: 10000
+```
+
+**Important**: increase the timeout for the Stop hook in your agent's hook config — tests and git checks may take longer than the default:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [{ "type": "command", "command": "constitution", "timeout": 180 }]
+      }
+    ]
+  }
+}
 ```
 
 ### Allow sudo only for apt
@@ -806,25 +911,6 @@ pip3 install detect-secrets
       exclude_lines: ["pragma: allowlist"]
 ```
 
-### Run golangci-lint after writing Go files
-
-```yaml
-- id: lint-go
-  name: "Go Linter"
-  enabled: true
-  priority: 10
-  severity: warn      # warn = don't block, but inform the agent
-  hook_events: [PostToolUse]
-  tool_match: [Write, Edit]
-  check:
-    type: linter
-    params:
-      file_extensions: [".go"]
-      command: "golangci-lint run --timeout=30s {file}"
-      working_dir: project
-      timeout: 30000
-```
-
 ### Restrict the agent to a single repository
 
 ```yaml
@@ -864,88 +950,59 @@ The agent will receive an error at session start if the repository is not in the
         Never run destructive commands without confirmation.
 ```
 
-### Completeness check before stopping the agent
-
-Use `cmd_check` for Stop events so the agent cannot stop until the project is in good shape:
+### Inject company standards at session start
 
 ```yaml
-# Build must pass
-- id: stop-build
-  name: "Build Must Succeed"
+- id: standards
+  name: "Inject Standards"
+  enabled: true
+  priority: 10
+  severity: audit
+  hook_events: [SessionStart]
+  check:
+    type: skill_inject
+    params:
+      context: |
+        Follow ACME Corp standards:
+        - Structured logging with slog
+        - Table-driven tests
+      # Or load from a file:
+      context_file: ".claude/company-standards.md"
+```
+
+### Run golangci-lint after writing Go files
+
+```yaml
+- id: lint-go
+  name: "Go Linter"
+  enabled: true
+  priority: 10
+  severity: warn      # warn = don't block, but inform the agent
+  hook_events: [PostToolUse]
+  tool_match: [Write, Edit]
+  check:
+    type: linter
+    params:
+      file_extensions: [".go"]
+      command: "golangci-lint run --timeout=30s {file}"
+      working_dir: project
+      timeout: 30000
+```
+
+### Defend against prompt injection
+
+```yaml
+- id: prompt-guard
+  name: "Prompt Injection Detection"
   enabled: true
   priority: 1
   severity: block
-  hook_events: [Stop]
-  message: "Build is broken. Fix compilation errors before stopping."
-  check:
-    type: cmd_check
-    params:
-      command: "go build ./..."
-      working_dir: project
-      timeout: 60000
-
-# Unit tests must pass
-- id: stop-tests
-  name: "Tests Must Pass"
-  enabled: true
-  priority: 2
-  severity: block
-  hook_events: [Stop]
-  message: "Tests are failing. Fix test failures before stopping."
-  check:
-    type: cmd_check
-    params:
-      command: "go test ./internal/... ./pkg/... -count=1"
-      working_dir: project
-      timeout: 120000
-
-# E2E tests must pass
-- id: stop-e2e
-  name: "E2E Tests Must Pass"
-  enabled: true
-  priority: 3
-  severity: block
-  hook_events: [Stop]
-  message: "E2E tests are failing. Fix them before stopping."
-  check:
-    type: cmd_check
-    params:
-      command: "go test ./e2e/ -count=1"
-      working_dir: project
-      timeout: 120000
-```
-
-**Important**: increase the timeout for the Stop hook in `.claude/settings.json` — tests may take longer than 5 seconds:
-
-```json
-{
-  "hooks": {
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [{ "type": "command", "command": "constitution", "timeout": 180 }]
-      }
-    ]
-  }
-}
-```
-
-`cmd_check` is also available for other events. You can use `{cwd}` as a substitution in the command.
-
-The CEL variable `last_assistant_message` allows you to analyze the agent's last message:
-
-```yaml
-# Warn if the agent did not mention tests in the final message
-- id: stop-mention-tests
-  name: "Mention Tests"
-  enabled: true
-  priority: 10
-  severity: warn
-  hook_events: [Stop]
+  hook_events: [UserPromptSubmit]
   check:
     type: cel
     params:
       expression: >
-        !(last_assistant_message.contains("test") ||
-          last_assistant_message.contains("test"))
+        prompt.contains("ignore previous instructions") ||
+        prompt.contains("disregard all rules") ||
+        prompt.contains("you are now")
 ```
