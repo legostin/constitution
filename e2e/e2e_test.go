@@ -364,7 +364,7 @@ func TestCmdValidate_AllowGitPushNormal(t *testing.T) {
 
 func TestCEL_BlockMainPush(t *testing.T) {
 	run(t, testCase{
-		name:      "CEL: block git push to main",
+		name:      "block git push to main",
 		hookEvent: "PreToolUse",
 		toolName:  "Bash",
 		toolInput: map[string]interface{}{"command": "git push origin main"},
@@ -374,7 +374,7 @@ func TestCEL_BlockMainPush(t *testing.T) {
 
 func TestCEL_BlockMasterPush(t *testing.T) {
 	run(t, testCase{
-		name:      "CEL: block git push to master",
+		name:      "block git push to master",
 		hookEvent: "PreToolUse",
 		toolName:  "Bash",
 		toolInput: map[string]interface{}{"command": "git push origin master"},
