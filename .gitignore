@@ -1,5 +1,12 @@
 bin/
+dist/
 *.db
 *.log
-.constitution.yaml
 *.gob
+*.swp
+.DS_Store
+.idea/
+.claude/
+.codex/
+.constitution.yaml
+constitution
