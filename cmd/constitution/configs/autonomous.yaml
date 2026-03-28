@@ -1,0 +1,159 @@
+version: "1"
+name: "autonomous-guardrails"
+
+# Autonomous + Guardrails
+# Full agent autonomy with hard safety constraints.
+# Agent makes its own decisions, guardrails prevent destructive actions.
+
+settings:
+  log_level: "info"
+
+rules:
+  # ── Session: Autonomous Mode Context ─────────────────────────────
+  - id: autonomous-context
+    name: "Autonomous Mode"
+    description: "Inject autonomous decision-making context at session start"
+    enabled: true
+    priority: 10
+    severity: audit
+    hook_events: [SessionStart]
+    check:
+      type: skill_inject
+      params:
+        context: |
+          You are an autonomous agent. Make decisions independently.
+          Before every action, ask yourself:
+          - Why am I doing this?
+          - What could go wrong?
+          - Is there a simpler approach?
+          After every significant action, briefly evaluate the result.
+          Do not ask for confirmation on safe, reversible actions.
+
+  # ── Prompt: Self-Critique Reminder ───────────────────────────────
+  - id: autonomous-prompt
+    name: "Autonomy Reminder"
+    description: "Reinforce autonomous behavior on every prompt"
+    enabled: true
+    priority: 5
+    severity: audit
+    hook_events: [UserPromptSubmit]
+    check:
+      type: prompt_modify
+      params:
+        system_context: |
+          Act autonomously. Do not ask for confirmation on safe actions.
+          Self-critique: evaluate each decision before and after.
+
+  # ── Secret Detection ─────────────────────────────────────────────
+  - id: secret-write
+    name: "Secret Detection"
+    description: "Block secrets in file writes"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Write, Edit]
+    check:
+      type: secret_regex
+      params:
+        scan_field: content
+        patterns:
+          - name: "AWS Access Key"
+            regex: "AKIA[0-9A-Z]{16}"
+          - name: "GitHub Token"
+            regex: "gh[ps]_[A-Za-z0-9_]{36,}"
+          - name: "Private Key"
+            regex: "-----BEGIN (RSA|EC|DSA|OPENSSH) PRIVATE KEY-----"
+          - name: "Generic API Key"
+            regex: "(?i)(api[_-]?key|secret[_-]?key)\\s*[:=]\\s*['\"]?[A-Za-z0-9_\\-]{20,}"
+          - name: "JWT Token"
+            regex: "eyJ[A-Za-z0-9_-]{10,}\\.eyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_\\-]+"
+        allow_patterns:
+          - "AKIAIOSFODNN7EXAMPLE"
+          - "(?i)test|example|dummy|placeholder"
+
+  # ── Directory ACL ────────────────────────────────────────────────
+  - id: dir-acl
+    name: "Directory ACL"
+    description: "Block access to sensitive directories and secret files"
+    enabled: true
+    priority: 2
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Read, Write, Edit, Glob, Grep]
+    check:
+      type: dir_acl
+      params:
+        mode: denylist
+        path_field: auto
+        patterns:
+          - "/etc/**"
+          - "~/.ssh/**"
+          - "~/.aws/**"
+          - "**/.env"
+          - "**/.env.*"
+          - "**/*.pem"
+          - "**/*.key"
+          - "**/credentials.json"
+        allow_within_project: true
+
+  # ── Command Validation ───────────────────────────────────────────
+  - id: cmd-validate
+    name: "Command Validation"
+    description: "Block dangerous bash commands"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Bash]
+    check:
+      type: cmd_validate
+      params:
+        deny_patterns:
+          - name: "Root deletion"
+            regex: "rm\\s+-rf\\s+/"
+          - name: "World-writable permissions"
+            regex: "chmod\\s+777"
+          - name: "Pipe to shell"
+            regex: "curl.*\\|\\s*(bash|sh|zsh)"
+          - name: "Wget pipe to shell"
+            regex: "wget.*\\|\\s*(bash|sh|zsh)"
+          - name: "Hard reset"
+            regex: "\\bgit\\s+reset\\s+--hard"
+          - name: "Drop database"
+            regex: "\\bdrop\\s+database\\b"
+            case_insensitive: true
+        allow_patterns:
+          - name: "Package management"
+            regex: "sudo\\s+(apt|yum|dnf|brew)"
+
+  # ── Stop: Quality Gates ──────────────────────────────────────────
+  - id: stop-build
+    name: "Build Must Succeed"
+    description: "Project must compile before stopping"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [Stop]
+    message: "Build failed. Fix compilation errors before stopping."
+    check:
+      type: cmd_check
+      params:
+        command: "go build ./..."
+        working_dir: project
+        timeout: 60000
+
+  - id: stop-tests
+    name: "Tests Must Pass"
+    description: "All tests must pass before stopping"
+    enabled: true
+    priority: 2
+    severity: block
+    hook_events: [Stop]
+    message: "Tests are failing. Fix them before stopping."
+    check:
+      type: cmd_check
+      params:
+        command: "go test ./... -count=1 -timeout=120s"
+        working_dir: project
+        timeout: 180000

@@ -1,0 +1,130 @@
+version: "1"
+name: "ooda-loop"
+
+# OODA Loop — Observe → Orient → Decide → Act
+# Military decision-making framework adapted for AI agents.
+# Promotes continuous observation, analysis, and iterative refinement.
+
+settings:
+  log_level: "info"
+
+rules:
+  # ── Session: OODA Framework ──────────────────────────────────────
+  - id: ooda-context
+    name: "OODA Loop Framework"
+    description: "Inject OODA decision-making framework at session start"
+    enabled: true
+    priority: 10
+    severity: audit
+    hook_events: [SessionStart]
+    check:
+      type: skill_inject
+      params:
+        context: |
+          You operate using the OODA Loop — a continuous decision-making cycle:
+
+          OBSERVE — Gather information about the current state.
+            What files exist? What does the code do? What are the requirements?
+            Read before you write. Understand before you change.
+
+          ORIENT — Analyze and contextualize what you observed.
+            How does this fit with existing patterns? What are the constraints?
+            What worked before? What are the risks?
+
+          DECIDE — Choose a course of action.
+            What is the simplest approach? What are the alternatives?
+            What could go wrong? Is this reversible?
+
+          ACT — Execute the decision.
+            Implement the change. Run the tests. Verify the result.
+
+          After every ACT, start a new OBSERVE cycle:
+            Did the action achieve its goal? What changed? What's next?
+
+          This loop is continuous. Never skip phases.
+          Speed comes from fast iteration, not from skipping steps.
+
+  # ── Prompt: OODA Reminder ────────────────────────────────────────
+  - id: ooda-reminder
+    name: "OODA Cycle Reminder"
+    description: "Prompt agent to follow OODA on every interaction"
+    enabled: true
+    priority: 5
+    severity: audit
+    hook_events: [UserPromptSubmit]
+    check:
+      type: prompt_modify
+      params:
+        system_context: |
+          OODA cycle: What do you OBSERVE? How do you ORIENT? What do you DECIDE? Then ACT.
+
+  # ── Secret Detection ─────────────────────────────────────────────
+  - id: secret-write
+    name: "Secret Detection"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Write, Edit]
+    check:
+      type: secret_regex
+      params:
+        scan_field: content
+        patterns:
+          - name: "AWS Access Key"
+            regex: "AKIA[0-9A-Z]{16}"
+          - name: "GitHub Token"
+            regex: "gh[ps]_[A-Za-z0-9_]{36,}"
+          - name: "Private Key"
+            regex: "-----BEGIN (RSA|EC|DSA|OPENSSH) PRIVATE KEY-----"
+        allow_patterns:
+          - "AKIAIOSFODNN7EXAMPLE"
+          - "(?i)test|example|dummy|placeholder"
+
+  # ── Command Validation ───────────────────────────────────────────
+  - id: cmd-validate
+    name: "Command Validation"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Bash]
+    check:
+      type: cmd_validate
+      params:
+        deny_patterns:
+          - name: "Root deletion"
+            regex: "rm\\s+-rf\\s+/"
+          - name: "Force push"
+            regex: "\\bgit\\s+push\\s+\\S+\\s+--force"
+          - name: "Hard reset"
+            regex: "\\bgit\\s+reset\\s+--hard"
+
+  # ── Stop: Verify Results ─────────────────────────────────────────
+  - id: stop-build
+    name: "Build Must Succeed"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [Stop]
+    message: "Build failed. OBSERVE the errors, ORIENT on the cause, DECIDE on a fix, then ACT."
+    check:
+      type: cmd_check
+      params:
+        command: "go build ./..."
+        working_dir: project
+        timeout: 60000
+
+  - id: stop-tests
+    name: "Tests Must Pass"
+    enabled: true
+    priority: 2
+    severity: block
+    hook_events: [Stop]
+    message: "Tests failing. Start a new OODA cycle to fix them."
+    check:
+      type: cmd_check
+      params:
+        command: "go test ./... -count=1 -timeout=120s"
+        working_dir: project
+        timeout: 180000

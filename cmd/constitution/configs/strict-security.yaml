@@ -1,0 +1,272 @@
+version: "1"
+name: "strict-security"
+
+# Strict Security
+# Maximum protection: extended secret detection, strict ACL,
+# expanded command blocklist, repository control.
+
+settings:
+  log_level: "info"
+
+rules:
+  # ── Safety Context ───────────────────────────────────────────────
+  - id: security-context
+    name: "Security Context"
+    description: "Inject security awareness at session start"
+    enabled: true
+    priority: 10
+    severity: audit
+    hook_events: [SessionStart]
+    check:
+      type: skill_inject
+      params:
+        context: |
+          STRICT SECURITY MODE is active.
+          - Never write secrets, tokens, or credentials to files
+          - Never access sensitive system directories
+          - Never run destructive or irreversible commands
+          - Always validate input before processing
+          - Report any security concerns immediately
+
+  - id: security-prompt
+    name: "Security Reminder"
+    description: "Security reminder on every prompt"
+    enabled: true
+    priority: 5
+    severity: audit
+    hook_events: [UserPromptSubmit]
+    check:
+      type: prompt_modify
+      params:
+        system_context: |
+          SECURITY: Never commit secrets. Never run destructive commands.
+          Verify safety before every action.
+
+  # ── Repository Access Control ────────────────────────────────────
+  - id: repo-access
+    name: "Repository Allowlist"
+    description: "Only allow execution in approved repositories"
+    enabled: false  # Enable and set your org patterns
+    priority: 1
+    severity: block
+    hook_events: [SessionStart]
+    check:
+      type: repo_access
+      params:
+        mode: allowlist
+        patterns:
+          - "github.com/your-org/*"  # ← Configure this
+        detect_from: git_remote
+
+  # ── Secret Detection (Regex) ─────────────────────────────────────
+  - id: secret-write
+    name: "Secret Detection (Regex)"
+    description: "Extended secret pattern scanning"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Write, Edit]
+    check:
+      type: secret_regex
+      params:
+        scan_field: content
+        patterns:
+          - name: "AWS Access Key"
+            regex: "AKIA[0-9A-Z]{16}"
+          - name: "AWS Secret Key"
+            regex: "(?i)aws_secret_access_key\\s*=\\s*[A-Za-z0-9/+=]{40}"
+          - name: "GitHub Token"
+            regex: "gh[ps]_[A-Za-z0-9_]{36,}"
+          - name: "Private Key"
+            regex: "-----BEGIN (RSA|EC|DSA|OPENSSH) PRIVATE KEY-----"
+          - name: "Generic API Key"
+            regex: "(?i)(api[_-]?key|secret[_-]?key)\\s*[:=]\\s*['\"]?[A-Za-z0-9_\\-]{20,}"
+          - name: "JWT Token"
+            regex: "eyJ[A-Za-z0-9_-]{10,}\\.eyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_\\-]+"
+          - name: "Slack Token"
+            regex: "xox[bpors]-[0-9]{10,}-[A-Za-z0-9]+"
+          - name: "Stripe Key"
+            regex: "[rs]k_(test|live)_[A-Za-z0-9]{20,}"
+        allow_patterns:
+          - "AKIAIOSFODNN7EXAMPLE"
+          - "(?i)test|example|dummy|placeholder|mock"
+
+  # ── Secret Detection (Yelp) ──────────────────────────────────────
+  - id: secret-yelp
+    name: "Secret Detection (Yelp)"
+    description: "Yelp detect-secrets with 28+ detectors"
+    enabled: false  # Enable if detect-secrets is installed: pip install detect-secrets
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Write, Edit]
+    check:
+      type: secret_yelp
+      params:
+        plugins:
+          - name: AWSKeyDetector
+          - name: ArtifactoryDetector
+          - name: AzureStorageKeyDetector
+          - name: BasicAuthDetector
+          - name: GitHubTokenDetector
+          - name: GitLabTokenDetector
+          - name: JwtTokenDetector
+          - name: KeywordDetector
+          - name: PrivateKeyDetector
+          - name: SlackDetector
+          - name: StripeDetector
+          - name: TwilioKeyDetector
+        exclude_secrets:
+          - "(?i)example|test|dummy|placeholder"
+
+  # ── Block Reading Secret Files ───────────────────────────────────
+  - id: secret-read
+    name: "Block Secret Files"
+    description: "Prevent reading known secret/credential files"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Read]
+    check:
+      type: dir_acl
+      params:
+        mode: denylist
+        path_field: file_path
+        patterns:
+          - "**/.env"
+          - "**/.env.*"
+          - "**/credentials.json"
+          - "**/service-account*.json"
+          - "**/*.pem"
+          - "**/*.key"
+          - "**/.netrc"
+          - "**/.pgpass"
+
+  # ── Directory ACL ────────────────────────────────────────────────
+  - id: dir-acl
+    name: "Strict Directory ACL"
+    description: "Block access to sensitive system directories"
+    enabled: true
+    priority: 2
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Read, Write, Edit, Glob, Grep]
+    check:
+      type: dir_acl
+      params:
+        mode: denylist
+        path_field: auto
+        patterns:
+          - "/etc/**"
+          - "/var/**"
+          - "~/.ssh/**"
+          - "~/.aws/**"
+          - "~/.config/gcloud/**"
+          - "~/.docker/**"
+          - "~/.kube/**"
+          - "../**"
+        allow_within_project: true
+
+  # ── Command Validation ───────────────────────────────────────────
+  - id: cmd-validate
+    name: "Strict Command Validation"
+    description: "Extended dangerous command blocklist"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Bash]
+    check:
+      type: cmd_validate
+      params:
+        deny_patterns:
+          - name: "Root deletion"
+            regex: "rm\\s+-rf\\s+/"
+          - name: "Fork bomb"
+            regex: ":\\(\\)\\{\\s*:\\|:&\\s*\\};:"
+          - name: "World-writable permissions"
+            regex: "chmod\\s+777"
+          - name: "Pipe to shell"
+            regex: "curl.*\\|\\s*(bash|sh|zsh)"
+          - name: "Wget pipe to shell"
+            regex: "wget.*\\|\\s*(bash|sh|zsh)"
+          - name: "Hard reset"
+            regex: "\\bgit\\s+reset\\s+--hard"
+          - name: "Drop database"
+            regex: "\\bdrop\\s+database\\b"
+            case_insensitive: true
+          - name: "Disk destroyer"
+            regex: "\\bdd\\s+if=.*of=/dev/"
+          - name: "Format disk"
+            regex: "\\bmkfs\\b"
+          - name: "Change password"
+            regex: "\\bpasswd\\b"
+          - name: "Kill all processes"
+            regex: "\\bkillall\\b"
+          - name: "Shutdown"
+            regex: "\\b(shutdown|reboot|halt|poweroff)\\b"
+        allow_patterns:
+          - name: "Package management"
+            regex: "sudo\\s+(apt|yum|dnf|brew)"
+
+  # ── Block Push to Protected Branches ─────────────────────────────
+  - id: no-protected-push
+    name: "Block Protected Branch Push"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Bash]
+    check:
+      type: cmd_validate
+      params:
+        deny_patterns:
+          - name: "Push to protected branch"
+            regex: "\\bgit\\s+push\\s+\\S+\\s+(main|master|develop|release)\\b"
+          - name: "Force push"
+            regex: "\\bgit\\s+push\\s+.*--force"
+
+  # ── Stop: Security Verification ──────────────────────────────────
+  - id: stop-build
+    name: "Build Must Succeed"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [Stop]
+    message: "Build failed."
+    check:
+      type: cmd_check
+      params:
+        command: "go build ./..."
+        working_dir: project
+        timeout: 60000
+
+  - id: stop-tests
+    name: "Tests Must Pass"
+    enabled: true
+    priority: 2
+    severity: block
+    hook_events: [Stop]
+    message: "Tests failing."
+    check:
+      type: cmd_check
+      params:
+        command: "go test ./... -count=1 -timeout=120s"
+        working_dir: project
+        timeout: 180000
+
+  - id: stop-committed
+    name: "No Uncommitted Changes"
+    enabled: true
+    priority: 3
+    severity: block
+    hook_events: [Stop]
+    message: "Uncommitted changes. Commit before stopping."
+    check:
+      type: cmd_check
+      params:
+        command: "git diff --quiet && git diff --cached --quiet"
+        working_dir: project
+        timeout: 5000

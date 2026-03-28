@@ -11,5 +11,17 @@ var minimalConfigTemplate string
 //go:embed configs/remote.yaml
 var remoteConfigTemplate string
 
+//go:embed configs/autonomous.yaml
+var autonomousTemplate string
+
+//go:embed configs/plan-first.yaml
+var planFirstTemplate string
+
+//go:embed configs/ooda-loop.yaml
+var oodaLoopTemplate string
+
+//go:embed configs/strict-security.yaml
+var strictSecurityTemplate string
+
 //go:embed skills/constitution/SKILL.md
 var skillConstitution string
