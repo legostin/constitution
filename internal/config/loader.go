@@ -12,34 +12,20 @@ import (
 //
 // Authority levels:
 //
-//	Level 0 (Global):     $CONSTITUTION_GLOBAL_CONFIG or /etc/constitution/global.yaml
-//	                      Reserved for model/platform developers. Not managed by constitution.
-//	Level 1 (Enterprise): $CONSTITUTION_ENTERPRISE_CONFIG
-//	                      Reserved for LLM provider/platform. Not managed by constitution.
+//	Level 0 (Global):     Reserved for model/platform developers. Not managed by constitution.
+//	Level 1 (Enterprise): Reserved for LLM provider/platform. Not managed by constitution.
 //	Level 2 (User):       ~/.config/constitution/constitution.yaml
 //	Level 3 (Project):    {cwd}/.constitution.yaml or {cwd}/.claude/constitution.yaml
 //
-// Constitution manages levels 2 (User) and 3 (Project). Levels 0-1 are read-only —
-// if present, their rules take precedence and cannot be weakened by lower levels.
+// Constitution manages levels 2 (User) and 3 (Project).
+// Levels 0-1 exist in the type system for forward compatibility with platform-level
+// rule injection, but constitution does not discover or create configs at these levels.
 // The explicit parameter (--config flag) and $CONSTITUTION_CONFIG are treated as user level.
 func DiscoverConfigSources(explicit, cwd string) []ConfigSource {
 	var sources []ConfigSource
 
-	// Level 0: Global
-	if globalPath := os.Getenv("CONSTITUTION_GLOBAL_CONFIG"); globalPath != "" {
-		if fileExists(globalPath) {
-			sources = append(sources, ConfigSource{Path: globalPath, Level: types.LevelGlobal})
-		}
-	} else if fileExists("/etc/constitution/global.yaml") {
-		sources = append(sources, ConfigSource{Path: "/etc/constitution/global.yaml", Level: types.LevelGlobal})
-	}
-
-	// Level 1: Enterprise / Organization
-	if enterprise := os.Getenv("CONSTITUTION_ENTERPRISE_CONFIG"); enterprise != "" {
-		if fileExists(enterprise) {
-			sources = append(sources, ConfigSource{Path: enterprise, Level: types.LevelEnterprise})
-		}
-	}
+	// Levels 0-1 (Global/Enterprise) are reserved for platform use.
+	// Constitution does not search for configs at these levels.
 
 	// Level 2: User
 	if home, err := os.UserHomeDir(); err == nil {
