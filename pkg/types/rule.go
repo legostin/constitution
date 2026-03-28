@@ -5,10 +5,10 @@ package types
 type ConfigLevel int
 
 const (
-	LevelGlobal     ConfigLevel = 0 // Highest authority — cannot be overridden
-	LevelEnterprise ConfigLevel = 1 // Organization/enterprise admin
-	LevelUser       ConfigLevel = 2 // Personal user config
-	LevelProject    ConfigLevel = 3 // Project-local config (lowest authority)
+	LevelGlobal     ConfigLevel = 0 // Reserved for model/platform developers (not managed by constitution)
+	LevelEnterprise ConfigLevel = 1 // Reserved for LLM provider/platform (not managed by constitution)
+	LevelUser       ConfigLevel = 2 // Personal user config (managed by constitution)
+	LevelProject    ConfigLevel = 3 // Project-local config (managed by constitution)
 )
 
 // String returns a human-readable name for the config level.

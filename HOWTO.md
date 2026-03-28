@@ -42,12 +42,14 @@ constitution init --output ~/.config/constitution/constitution.yaml
 
 Конфиги работают по принципу конституционной иерархии — **чем глобальнее уровень, тем выше авторитет**:
 
-| Уровень | Источник | Авторитет |
-|---------|----------|-----------|
-| Global | `/etc/constitution/global.yaml` или `$CONSTITUTION_GLOBAL_CONFIG` | Высший |
-| Enterprise | `$CONSTITUTION_ENTERPRISE_CONFIG` | Высокий |
-| User | `~/.config/constitution/constitution.yaml` | Средний |
-| Project | `{cwd}/.constitution.yaml` | Низший |
+| Уровень | Источник | Авторитет | Кто управляет |
+|---------|----------|-----------|---------------|
+| Global | `/etc/constitution/global.yaml` или `$CONSTITUTION_GLOBAL_CONFIG` | Высший | Разработчики модели / платформы (вне контроля constitution) |
+| Enterprise | `$CONSTITUTION_ENTERPRISE_CONFIG` | Высокий | Провайдер LLM / платформа (вне контроля constitution) |
+| User | `~/.config/constitution/constitution.yaml` | Средний | Пользователь |
+| Project | `{cwd}/.constitution.yaml` | Низший | Разработчик проекта |
+
+> Global и Enterprise — зарезервированные уровни для правил платформы/модели. Constitution их не создаёт, только учитывает при мерже. Вы работаете с User и Project.
 
 Все уровни загружаются и мержатся. Нижний уровень **может добавить** свои правила и **усилить** существующие (warn→block), но **не может ослабить** или **отключить** правила вышестоящего уровня.
 
