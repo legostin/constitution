@@ -1,124 +1,97 @@
 # Constitution
 
-A Go framework for governing Claude Code behavior through a hooks system. Immutable rules -- the agent's "constitution" -- are defined via a YAML config and cannot be bypassed by the agent.
+A rule enforcement framework for AI coding agents. Immutable rules -- the agent's "constitution" -- are defined via a YAML config and enforced through a hooks system. The agent cannot bypass or modify them.
 
 ## Architecture
 
 ```
-Claude Code hooks ──► constitution (Go binary)
-                          │
-                          ├── Local checks (< 50ms)
-                          │     ├── Secret detection
-                          │     ├── Directory ACL
-                          │     ├── Command validation
-                          │     ├── CEL expressions
-                          │     └── Repository control
-                          │
-                          └── POST ──► constitutiond (remote service)
-                                        ├── Stateful checks
-                                        ├── Audit log (slog → stdout)
-                                        └── Centralized config
+AI agent hooks ──► constitution (Go binary)
+                       │
+                       ├── Local checks (< 50ms)
+                       │     ├── Secret detection
+                       │     ├── Directory ACL
+                       │     ├── Command validation
+                       │     ├── CEL expressions
+                       │     └── Repository control
+                       │
+                       └── POST ──► constitutiond (remote service)
+                                     ├── Stateful checks
+                                     ├── Audit log (slog → stdout)
+                                     └── Centralized config
 ```
 
-A single binary serves all Claude Code hooks. It reads JSON from stdin, determines the event type from the `hook_event_name` field, applies rules from the YAML config, and returns JSON to stdout.
+A single binary serves all hook events. It reads JSON from stdin, determines the event type from the `hook_event_name` field, applies rules from the YAML config, and returns JSON to stdout. The protocol is platform-agnostic -- any AI agent that supports JSON stdin/stdout hooks can use Constitution.
 
 ## Quick Start
 
-### Installation
-
 ```bash
 go install github.com/legostin/constitution/cmd/constitution@latest
+constitution setup
 ```
 
-### Scenario 1: Local Rules
+`constitution setup` is a guided wizard that walks you through platform selection, security rules, orchestration patterns, stop validation, skills, and hook installation -- all in one command.
+
+### Non-interactive Mode
 
 ```bash
-constitution init                 # Create .constitution.yaml from a template
-constitution setup                # Interactively install hooks into Claude Code
+constitution setup --yes --platform claude --security all
+constitution setup --yes --platform codex --scope project
+constitution setup --yes --platform both --workflow ooda-loop --security minimal
 ```
 
-### Scenario 2: Connecting to a Company Server
+### Connecting to a Company Server
 
 ```bash
-constitution setup --remote https://constitution.company.com
-# → Creates .constitution.yaml with remote URL + installs hooks
-```
-
-### Scenario 3: Config Already in the Repository
-
-If `.constitution.yaml` is already in the repo (added by the Platform team):
-
-```bash
-constitution setup                # Finds the config, installs hooks
+constitution setup
+# Step 2 of the wizard asks for the remote server URL
 ```
 
 ## CLI
 
 ```
-constitution                      # Hook handler (stdin/stdout) — called by Claude Code
-constitution init                 # Create .constitution.yaml
-constitution init --template minimal
-constitution init --remote URL    # Create a remote-only config
-constitution setup                # Interactive hook installation
-constitution setup --remote URL   # Quick remote setup + hooks
-constitution setup --scope user   # Install into ~/.claude/settings.json
-constitution validate             # Validate config
-constitution uninstall            # Remove hooks from settings.json
-constitution rules                # Interactive rules manager
-constitution rules add            # Step-by-step rule creation wizard
-constitution rules list           # Show all rules
-constitution rules edit <id>      # Edit a rule
-constitution rules delete <id>    # Delete a rule
-constitution rules toggle <id>    # Enable/disable a rule
-constitution rules add --id=X --check-type=Y --events=Z --params='{...}'  # Non-interactive mode
-constitution rules list --json    # JSON output for scripts
-constitution skill install        # Install Claude Code skills
-constitution skill uninstall      # Remove skills
-constitution skill list           # Show installed skills
-constitution version
+constitution                        Hook handler mode (reads JSON from stdin)
+constitution setup                  Guided setup wizard (config + hooks + skills)
+constitution validate               Validate configuration
+constitution uninstall              Remove hooks and skills
+constitution rules                  Interactive rule manager
+constitution rules list             List all rules (--json for machine output)
+constitution rules add              Add a rule (interactive or --id/--json flags)
+constitution rules edit <id>        Edit a rule (by ID or number)
+constitution rules delete <id>      Delete a rule
+constitution rules toggle <id>      Enable/disable a rule
+constitution version                Show version
 ```
 
-### Claude Code Skills
+Six commands total: `setup`, `validate`, `uninstall`, `rules`, `version`, plus the implicit hook handler mode (no subcommand, stdin is a pipe).
 
-Constitution ships with two Claude Code skills:
+### Setup Wizard Steps
 
-| Skill | Description |
-|-------|-------------|
-| `/constitution` | Rule management, validation, diagnostics -- Claude calls the CLI |
-| `/constitution-rules` | Quick rule creation through a dialog with the user |
+The `constitution setup` wizard runs through 7 steps:
+
+| Step | What It Does |
+|------|-------------|
+| 1. Platform | Choose Claude Code, OpenAI Codex, or both |
+| 2. Remote | Optionally connect to a centralized rules server |
+| 3. Security Rules | Pick security protections (secrets, commands, ACL, etc.) |
+| 4. Orchestration | Apply an orchestration pattern (autonomous, plan-first, etc.) |
+| 5. Stop Validation | Define what the agent must verify before stopping |
+| 6. Skills | Install /constitution slash command |
+| 7. Install | Write `.constitution.yaml`, install hooks, install skills |
+
+### Non-interactive Flags
 
 ```bash
-constitution skill install --scope project   # Install for this project
-constitution skill install --scope user      # Install for all projects
+constitution setup \
+  --yes                          # Accept all defaults
+  --platform claude|codex|both   # Target platform
+  --scope user|project           # Installation scope
+  --workflow autonomous          # Orchestration pattern
+  --security all|minimal|none    # Security preset
 ```
-
-Skills use the non-interactive CLI mode (`--json`, `--yes` flags) so that Claude can programmatically invoke commands.
-
-### Orchestration Patterns
-
-Ready-made configurations for popular agent management patterns:
-
-```bash
-constitution init --workflow autonomous       # Full autonomy + guardrails
-constitution init --workflow plan-first       # Plan → Execute → Test
-constitution init --workflow ooda-loop        # OODA: Observe → Orient → Decide → Act
-constitution init --workflow ralph-loop       # Continuous autonomous loop until PRD complete
-constitution init --workflow strict-security  # Maximum security
-```
-
-| Pattern | Description | Key Rules |
-|---------|-------------|-----------|
-| **Autonomous** | Agent makes decisions on its own, safety guardrails | skill_inject (self-critique), cmd_validate, secret_regex, Stop gates |
-| **Plan-First** | Plan first, then code, then tests | skill_inject (workflow), prompt_modify (reminder), Stop: build+tests+commit |
-| **OODA Loop** | Military framework: observe → orient → decide → act | skill_inject (OODA cycle), prompt_modify (cycle reminder) |
-| **Ralph Loop** | Continuous autonomous loop until all PRD tasks complete | skill_inject (loop behavior), Stop: build+tests+committed |
-| **Strict Security** | Maximum protection | Extended secrets, Yelp detect-secrets, strict ACL, expanded cmd blocklist, repo control |
-
-Each pattern is a complete `.constitution.yaml` with pre-configured rules. You can combine them: create a pattern as a base, then add rules via `constitution rules add`.
 
 ## Platform Support
 
-Constitution supports multiple AI agent platforms:
+Constitution supports multiple AI agent platforms through a unified protocol:
 
 | Platform | Setup Command | Config Location |
 |----------|-------------|-----------------|
@@ -128,7 +101,7 @@ Constitution supports multiple AI agent platforms:
 ### OpenAI Codex
 
 ```bash
-constitution setup --platform codex --scope project --all
+constitution setup --platform codex --scope project
 ```
 
 Codex hooks use the same JSON stdin/stdout protocol as Claude Code. Limitations:
@@ -138,46 +111,27 @@ Codex hooks use the same JSON stdin/stdout protocol as Claude Code. Limitations:
 
 All constitution rules, check types, and orchestration patterns work identically on both platforms.
 
-## Server Deployment (for Companies)
+## Orchestration Patterns
 
-The Platform team runs `constitutiond` with the company's rules. Developers connect via `constitution setup --remote URL`.
-
-### Docker Compose
-
-```yaml
-# docker-compose.yaml
-services:
-  constitutiond:
-    image: ghcr.io/legostin/constitutiond:latest
-    ports:
-      - "8081:8081"
-    volumes:
-      - ./company-rules.yaml:/etc/constitution/config.yaml:ro
-    environment:
-      - CONSTITUTION_TOKEN=${CONSTITUTION_TOKEN}
-```
+Ready-made configurations for agent behavior management. Selected in step 4 of the setup wizard or via the `--workflow` flag:
 
 ```bash
-docker compose up -d
+constitution setup --workflow autonomous
+constitution setup --workflow plan-first
+constitution setup --workflow ooda-loop
+constitution setup --workflow ralph-loop
+constitution setup --workflow strict-security
 ```
 
-### From Source
+| Pattern | Description | Key Rules |
+|---------|-------------|-----------|
+| **Autonomous** | Agent makes decisions on its own, safety guardrails | skill_inject (self-critique), cmd_validate, secret_regex, Stop gates |
+| **Plan-First** | Plan first, then code, then tests | skill_inject (workflow), prompt_modify (reminder), Stop: build+tests+commit |
+| **OODA Loop** | Military framework: observe, orient, decide, act | skill_inject (OODA cycle), prompt_modify (cycle reminder) |
+| **Ralph Loop** | Continuous autonomous loop until all PRD tasks complete | skill_inject (loop behavior), Stop: build+tests+committed |
+| **Strict Security** | Maximum protection | Extended secrets, Yelp detect-secrets, strict ACL, expanded cmd blocklist, repo control |
 
-```bash
-go install github.com/legostin/constitution/cmd/constitutiond@latest
-constitutiond --config rules.yaml --addr :8081
-```
-
-### Rule Management
-
-```
-company-constitution/              ← Platform team's Git repo
-├── company-rules.yaml             ← rules
-├── docker-compose.yaml            ← deployment
-└── .github/workflows/deploy.yaml  ← CI: push → redeploy
-```
-
-The Platform team edits the YAML, pushes it, and CI updates the container. Developers do nothing.
+Each pattern generates a complete `.constitution.yaml` with pre-configured rules. The wizard merges orchestration rules (skill_inject, prompt_modify) with the security rules you selected in step 3, so there are no duplicates. You can further customize rules via `constitution rules add` after setup.
 
 ## Configuration
 
@@ -192,7 +146,7 @@ Constitution uses a multi-level configuration system based on the principle of c
 | **User** | Medium | `~/.config/constitution/constitution.yaml` | User |
 | **Project** | Lowest | `{cwd}/.constitution.yaml` or `{cwd}/.claude/constitution.yaml` | Project developer |
 
-> **Note**: The Global and Enterprise levels are reserved for rules set by model developers or the platform (e.g., Claude Code). Constitution does not create, search for, or manage configs at these levels -- they exist in the type system for compatibility with future platform rule injection. Users work with the **User** and **Project** levels.
+> **Note**: The Global and Enterprise levels are reserved for rules set by model developers or the platform. Constitution does not create, search for, or manage configs at these levels -- they exist in the type system for compatibility with future platform rule injection. Users work with the **User** and **Project** levels.
 
 All found configs are **loaded and merged**. The `--config` flag and `$CONSTITUTION_CONFIG` have the User level.
 
@@ -343,7 +297,7 @@ check:
 - `*` -- any file name
 - `~` -- user's home directory
 
-**`path_field: auto`** -- automatically tries the fields `file_path` → `path` → `pattern` and uses the first one found.
+**`path_field: auto`** -- automatically tries the fields `file_path` -> `path` -> `pattern` and uses the first one found.
 
 ### `repo_access` -- Repository Control
 
@@ -360,7 +314,7 @@ check:
     detect_from: git_remote   # git_remote | directory
 ```
 
-**How it works**: on `SessionStart`, it determines the current repository via `git remote get-url origin`, normalizes the URL (SSH and HTTPS → `github.com/org/repo`), and compares it with patterns. If the repo is not in the allowlist -- the session is blocked.
+**How it works**: on `SessionStart`, it determines the current repository via `git remote get-url origin`, normalizes the URL (SSH and HTTPS -> `github.com/org/repo`), and compares it with patterns. If the repo is not in the allowlist -- the session is blocked.
 
 ### `cel` -- CEL Expressions
 
@@ -392,9 +346,9 @@ check:
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `path_match` | `(pattern, path) → bool` | Glob matching for paths |
-| `regex_match` | `(pattern, str) → bool` | Regex matching for strings |
-| `is_within` | `(path, base) → bool` | Checks that the path is inside the base directory |
+| `path_match` | `(pattern, path) -> bool` | Glob matching for paths |
+| `regex_match` | `(pattern, str) -> bool` | Regex matching for strings |
+| `is_within` | `(path, base) -> bool` | Checks that the path is inside the base directory |
 
 **CEL expression examples**:
 
@@ -427,7 +381,6 @@ Integration with [Yelp detect-secrets](https://github.com/Yelp/detect-secrets) -
 check:
   type: secret_yelp
   params:
-    # detect-secrets plugins (if not specified, all defaults are used)
     plugins:
       - name: AWSKeyDetector
       - name: GitHubTokenDetector
@@ -439,20 +392,15 @@ check:
       - name: KeywordDetector
       - name: SlackDetector
       - name: StripeDetector
-    # detect-secrets filters
     filters:
       - path: secret_yelp.filters.gibberish.should_exclude_secret
       - path: secret_yelp.filters.allowlist.is_line_allowlisted
-    # Exceptions
     exclude_secrets: ["(?i)example|test|dummy"]
     exclude_lines: ["pragma: allowlist"]
-    # Path to binary (optional)
     binary: "detect-secrets"
-    # Scanning mode
-
 ```
 
-**How it works**: extracts content from `tool_input`, scans each line via `detect-secrets scan --string` (line-by-line scanning is more reliable than file-based, as detect-secrets applies aggressive filters when scanning files). The plugins/filters config from YAML is dynamically generated into a JSON baseline file. If `detect-secrets` is not installed -- `Init()` will return an error; with `severity: block`, the action will be blocked (fail-closed).
+**How it works**: extracts content from `tool_input`, scans each line via `detect-secrets scan --string` (line-by-line scanning is more reliable than file-based). The plugins/filters config from YAML is dynamically generated into a JSON baseline file. If `detect-secrets` is not installed -- `Init()` will return an error; with `severity: block`, the action will be blocked (fail-closed).
 
 **Available plugins** (28+): `AWSKeyDetector`, `ArtifactoryDetector`, `AzureStorageKeyDetector`, `Base64HighEntropyString`, `BasicAuthDetector`, `CloudantDetector`, `DiscordBotTokenDetector`, `GitHubTokenDetector`, `GitLabTokenDetector`, `HexHighEntropyString`, `IbmCloudIamDetector`, `JwtTokenDetector`, `KeywordDetector`, `MailchimpDetector`, `NpmDetector`, `OpenAIDetector`, `PrivateKeyDetector`, `SendGridDetector`, `SlackDetector`, `StripeDetector`, `TelegramBotTokenDetector`, `TwilioKeyDetector`, and more.
 
@@ -560,6 +508,32 @@ constitutiond \
   --token "your-secret-token"
 ```
 
+### Docker Compose
+
+```yaml
+# docker-compose.yaml
+services:
+  constitutiond:
+    image: ghcr.io/legostin/constitutiond:latest
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./company-rules.yaml:/etc/constitution/config.yaml:ro
+    environment:
+      - CONSTITUTION_TOKEN=${CONSTITUTION_TOKEN}
+```
+
+```bash
+docker compose up -d
+```
+
+### From Source
+
+```bash
+go install github.com/legostin/constitution/cmd/constitutiond@latest
+constitutiond --config rules.yaml --addr :8081
+```
+
 ### API
 
 ```
@@ -588,95 +562,18 @@ remote:
 | `allow` | Skip all remote rules, allow the action |
 | `deny` | Block everything if remote is unavailable |
 
-### Marking Rules as Remote
+### Server Deployment (for Companies)
 
-```yaml
-rules:
-  - id: deep-secret-scan
-    remote: true             # This rule runs on the remote service
-    # ...
+The Platform team runs `constitutiond` with the company's rules. Developers connect via the setup wizard (step 2).
+
+```
+company-constitution/              <- Platform team's Git repo
+├── company-rules.yaml             <- rules
+├── docker-compose.yaml            <- deployment
+└── .github/workflows/deploy.yaml  <- CI: push → redeploy
 ```
 
-## Configuration Examples
-
-### Minimal (protection from secrets and dangerous commands)
-
-```yaml
-version: "1"
-name: "minimal"
-rules:
-  - id: secret-write
-    name: "Secret Detection"
-    enabled: true
-    priority: 1
-    severity: block
-    hook_events: [PreToolUse]
-    tool_match: [Write, Edit]
-    check:
-      type: secret_regex
-      params:
-        scan_field: content
-        patterns:
-          - { name: "AWS Key", regex: "AKIA[0-9A-Z]{16}" }
-          - { name: "GitHub Token", regex: "gh[ps]_[A-Za-z0-9_]{36,}" }
-          - { name: "Private Key", regex: "-----BEGIN .* PRIVATE KEY-----" }
-
-  - id: cmd-validate
-    name: "Command Validation"
-    enabled: true
-    priority: 1
-    severity: block
-    hook_events: [PreToolUse]
-    tool_match: [Bash]
-    check:
-      type: cmd_validate
-      params:
-        deny_patterns:
-          - { name: "Root deletion", regex: "rm\\s+-rf\\s+/" }
-          - { name: "Force push", regex: "\\bgit\\s+push\\s+.*--force" }
-```
-
-### Enterprise (full protection + remote audit)
-
-```yaml
-version: "1"
-name: "enterprise"
-settings:
-  log_level: info
-  log_file: /var/log/constitution.log
-remote:
-  enabled: true
-  url: "https://constitution.internal.company.com"
-  auth_token_env: "CONSTITUTION_TOKEN"
-  timeout: 5000
-  fallback: deny
-rules:
-  - id: repo-access
-    name: "Repository Allowlist"
-    enabled: true
-    priority: 1
-    severity: block
-    hook_events: [SessionStart]
-    check:
-      type: repo_access
-      params:
-        mode: allowlist
-        patterns: ["github.com/company/*"]
-        detect_from: git_remote
-
-  - id: skill-inject
-    name: "Company Standards"
-    enabled: true
-    priority: 10
-    severity: audit
-    hook_events: [SessionStart]
-    check:
-      type: skill_inject
-      params:
-        context_file: ".claude/company-standards.md"
-
-  # ... add secret_regex, dir_acl, cmd_validate, linter, cel rules
-```
+The Platform team edits the YAML, pushes it, and CI updates the container. Developers do nothing.
 
 ## Testing
 
@@ -723,6 +620,8 @@ make install        # Install globally (go install)
 make test           # Unit tests with race detector
 make e2e            # E2E tests (binary + real config)
 make lint           # go vet
+make fmt            # Format code
+make tidy           # Tidy modules
 make smoke-test     # Verify rm -rf / is blocked
 make run-server     # Run constitutiond locally
 make docker-build   # Build Docker image
@@ -733,8 +632,9 @@ make docker-run     # Run via docker compose
 
 ```
 cmd/
-  constitution/       CLI + hook handler (init, setup, validate, ...)
+  constitution/       CLI + hook handler (setup, validate, rules, ...)
     configs/          Embedded config templates (go:embed)
+    skills/           Embedded skill definitions (go:embed)
   constitutiond/      Remote service
 internal/
   celenv/             CEL environment (variables + functions)
@@ -753,38 +653,13 @@ Dockerfile            Multi-stage build
 docker-compose.yaml   Server deployment
 ```
 
-### Writing a Custom Plugin
+## Protocol
 
-Any executable that reads JSON from stdin and writes JSON to stdout:
-
-```bash
-#!/bin/bash
-INPUT=$(cat)
-CONTENT=$(echo "$INPUT" | jq -r '.input.tool_input.content // empty')
-
-if echo "$CONTENT" | grep -qE 'TODO|FIXME|HACK'; then
-  echo '{"passed":false,"message":"Code contains TODO/FIXME/HACK markers"}'
-  exit 2
-fi
-
-echo '{"passed":true,"message":"OK"}'
-```
-
-Register it in the config:
-
-```yaml
-plugins:
-  - name: "no-todos"
-    type: exec
-    path: "/path/to/no-todos.sh"
-    timeout: 3000
-```
-
-## Interaction Protocol with Claude Code
+Constitution communicates with AI agents via JSON on stdin/stdout. This protocol is platform-agnostic -- any agent that supports command-based hooks can use it.
 
 ### Input (stdin)
 
-Claude Code passes JSON to the hook's stdin:
+The agent passes JSON to the hook's stdin:
 
 ```json
 {
@@ -846,7 +721,6 @@ No output -- action is allowed.
 }
 ```
 
-
 ---
 
-🇷🇺 [Документация на русском](docs/ru/README.md)
+[Dokumentация на русском](docs/ru/README.md)
