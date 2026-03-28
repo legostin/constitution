@@ -143,10 +143,12 @@ Constitution использует многоуровневую систему к
 
 | Уровень | Авторитет | Источник | Кто управляет |
 |---------|-----------|----------|---------------|
-| **Global** | Высший | `$CONSTITUTION_GLOBAL_CONFIG` или `/etc/constitution/global.yaml` | LLM / платформа |
-| **Enterprise** | Высокий | `$CONSTITUTION_ENTERPRISE_CONFIG` | Организация (админ) |
+| **Global** | Высший | `$CONSTITUTION_GLOBAL_CONFIG` или `/etc/constitution/global.yaml` | Разработчики модели / платформы (вне контроля constitution) |
+| **Enterprise** | Высокий | `$CONSTITUTION_ENTERPRISE_CONFIG` | Провайдер LLM / платформа (вне контроля constitution) |
 | **User** | Средний | `~/.config/constitution/constitution.yaml` | Пользователь |
 | **Project** | Низший | `{cwd}/.constitution.yaml` или `{cwd}/.claude/constitution.yaml` | Разработчик проекта |
+
+> **Примечание**: уровни Global и Enterprise зарезервированы для правил, которые устанавливаются разработчиками модели или платформой (например, Claude Code). Constitution их не создаёт и не модифицирует — только читает и учитывает при мерже. Пользователи работают с уровнями User и Project.
 
 Все найденные конфиги **загружаются и мержатся**. Флаг `--config` и `$CONSTITUTION_CONFIG` имеют уровень User.
 

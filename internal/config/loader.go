@@ -13,10 +13,14 @@ import (
 // Authority levels:
 //
 //	Level 0 (Global):     $CONSTITUTION_GLOBAL_CONFIG or /etc/constitution/global.yaml
+//	                      Reserved for model/platform developers. Not managed by constitution.
 //	Level 1 (Enterprise): $CONSTITUTION_ENTERPRISE_CONFIG
+//	                      Reserved for LLM provider/platform. Not managed by constitution.
 //	Level 2 (User):       ~/.config/constitution/constitution.yaml
 //	Level 3 (Project):    {cwd}/.constitution.yaml or {cwd}/.claude/constitution.yaml
 //
+// Constitution manages levels 2 (User) and 3 (Project). Levels 0-1 are read-only —
+// if present, their rules take precedence and cannot be weakened by lower levels.
 // The explicit parameter (--config flag) and $CONSTITUTION_CONFIG are treated as user level.
 func DiscoverConfigSources(explicit, cwd string) []ConfigSource {
 	var sources []ConfigSource
