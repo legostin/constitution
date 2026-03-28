@@ -26,6 +26,9 @@ var strictSecurityTemplate string
 //go:embed configs/ralph-loop.yaml
 var ralphLoopTemplate string
 
+//go:embed configs/autoproduct.yaml
+var autoproductTemplate string
+
 //go:embed skills/constitution/SKILL.md
 var skillConstitution string
 
@@ -34,6 +37,7 @@ var workflowTemplates = map[string]string{
 	"plan-first":      planFirstTemplate,
 	"ooda-loop":       oodaLoopTemplate,
 	"ralph-loop":      ralphLoopTemplate,
+	"autoproduct":     autoproductTemplate,
 	"strict-security": strictSecurityTemplate,
 }
 

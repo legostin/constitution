@@ -257,6 +257,7 @@ Ready-made configurations for agent behavior management:
 | **Plan-First** | `constitution setup --workflow plan-first` | Mandatory planning before implementation, Stop gates |
 | **OODA Loop** | `constitution setup --workflow ooda-loop` | Observe->Orient->Decide->Act cycle, reflection |
 | **Ralph Loop** | `constitution setup --workflow ralph-loop` | Continuous autonomous loop until all PRD tasks complete |
+| **Autoproduct** | `constitution setup --workflow autoproduct` | Spec-driven autonomous dev (Karpathy's autoresearch for products) |
 | **Strict Security** | `constitution setup --workflow strict-security` | Maximum protection: secrets, ACL, extended blocklists |
 
 Each pattern is applied during `constitution setup` and combined with your chosen security rules. You can further customize by adding rules via `constitution rules add`.
@@ -266,6 +267,7 @@ When choosing a pattern for the user:
 - Team requires process -> **plan-first**
 - Analytical approach needed -> **ooda-loop**
 - Long-running autonomous tasks from PRD -> **ralph-loop**
+- Spec-driven product development -> **autoproduct**
 - Working with sensitive data -> **strict-security**
 
 ## Hook Events

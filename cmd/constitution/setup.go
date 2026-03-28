@@ -272,10 +272,11 @@ func wizardOrchestration(flag string, yes bool) []types.Rule {
 		"Plan-First     — plan -> execute -> test workflow",
 		"OODA Loop      — observe -> orient -> decide -> act cycle",
 		"Ralph Loop     — continuous autonomous loop until PRD complete",
+		"Autoproduct    — spec-driven autonomous dev (inspired by Karpathy's autoresearch)",
 		"Strict Security — maximum protection, extended blocklists",
 	}, 0)
 
-	names := []string{"", "autonomous", "plan-first", "ooda-loop", "ralph-loop", "strict-security"}
+	names := []string{"", "autonomous", "plan-first", "ooda-loop", "ralph-loop", "autoproduct", "strict-security"}
 	if idx == 0 {
 		return nil
 	}

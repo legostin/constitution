@@ -1,0 +1,159 @@
+version: "1"
+name: "autoproduct"
+
+# Autoproduct — Autonomous Product Development Loop
+#
+# Inspired by Karpathy's autoresearch: specification-driven autonomous iteration.
+# Human writes SPEC.md (what to build), agent iterates autonomously.
+# Each cycle: pick task → implement → verify → commit or revert → repeat.
+#
+# Key principles:
+# - Specification-as-code: SPEC.md is the single source of truth
+# - Measurable verification: every change must pass build + tests
+# - Keep/discard: commit on success, revert on failure
+# - Progress tracking: agent logs progress to PROGRESS.md
+# - Human guidance layer: SPEC.md evolves, agent adapts
+#
+# See: https://github.com/karpathy/autoresearch
+
+settings:
+  log_level: "info"
+
+rules:
+  # ── Session: Autoproduct Loop Context ────────────────────────────
+  - id: autoproduct-context
+    name: "Autoproduct Loop"
+    description: "Inject autonomous product development framework at session start"
+    enabled: true
+    priority: 1
+    severity: audit
+    hook_events: [SessionStart]
+    check:
+      type: skill_inject
+      params:
+        context: |
+          AUTOPRODUCT MODE — Specification-Driven Autonomous Development
+
+          You are operating in Autoproduct mode, inspired by Karpathy's autoresearch.
+          Human writes the spec. You build it autonomously.
+
+          FILES:
+          - SPEC.md — The product specification. Your single source of truth.
+            Read it first. Every task comes from here.
+          - PROGRESS.md — Your experiment log. Update after each iteration.
+            Track: what you tried, what worked, what failed, metrics.
+
+          THE LOOP:
+          1. READ SPEC — Parse SPEC.md for the next incomplete requirement
+          2. PLAN — Design the smallest change that addresses one requirement
+          3. IMPLEMENT — Write the code. One focused change per iteration.
+          4. VERIFY — Run build + tests. Check acceptance criteria from SPEC.md.
+          5. DECIDE:
+             - PASS → Commit with clear message. Update PROGRESS.md.
+             - FAIL → Analyze why. Fix or revert. Log the failure in PROGRESS.md.
+          6. REPEAT — Go back to step 1. Pick the next requirement.
+
+          RULES:
+          - One change per iteration. Small, focused, verifiable.
+          - Every change must pass build and tests before commit.
+          - If tests fail, fix or revert — never leave the project broken.
+          - Log everything to PROGRESS.md: what you tried, result, time spent.
+          - If stuck on a requirement, skip it, log the blocker, move to the next.
+          - SPEC.md is immutable during a session. Don't modify it.
+          - When all SPEC.md requirements are done, stop.
+
+          METRICS:
+          - Requirements completed (from SPEC.md)
+          - Tests passing
+          - Build status
+          - Iterations count
+
+  # ── Prompt: Iteration Reminder ───────────────────────────────────
+  - id: autoproduct-prompt
+    name: "Autoproduct Cycle Reminder"
+    description: "Reinforce the iteration loop on every prompt"
+    enabled: true
+    priority: 5
+    severity: audit
+    hook_events: [UserPromptSubmit]
+    check:
+      type: prompt_modify
+      params:
+        system_context: |
+          Autoproduct loop: READ SPEC → PLAN → IMPLEMENT → VERIFY → COMMIT or REVERT → REPEAT.
+          Log progress to PROGRESS.md. One focused change per iteration.
+
+  # ── Secret Detection ─────────────────────────────────────────────
+  - id: secret-write
+    name: "Secret Detection"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Write, Edit]
+    check:
+      type: secret_regex
+      params:
+        scan_field: content
+        patterns:
+          - name: "AWS Access Key"
+            regex: "AKIA[0-9A-Z]{16}"
+          - name: "GitHub Token"
+            regex: "gh[ps]_[A-Za-z0-9_]{36,}"
+          - name: "Private Key"
+            regex: "-----BEGIN (RSA|EC|DSA|OPENSSH) PRIVATE KEY-----"
+        allow_patterns:
+          - "AKIAIOSFODNN7EXAMPLE"
+          - "(?i)test|example|dummy|placeholder"
+
+  # ── Command Validation ───────────────────────────────────────────
+  - id: cmd-validate
+    name: "Command Validation"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Bash]
+    check:
+      type: cmd_validate
+      params:
+        deny_patterns:
+          - name: "Root deletion"
+            regex: "rm\\s+-rf\\s+/"
+          - name: "Force push"
+            regex: "\\bgit\\s+push\\s+.*--force"
+          - name: "Hard reset"
+            regex: "\\bgit\\s+reset\\s+--hard"
+
+  # ── Protect SPEC.md from modification ────────────────────────────
+  - id: protect-spec
+    name: "Protect SPEC.md"
+    description: "Agent must not modify the specification during a session"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Write, Edit]
+    check:
+      type: dir_acl
+      params:
+        mode: denylist
+        path_field: file_path
+        patterns:
+          - "**/SPEC.md"
+
+  # ── Stop: Verify iteration quality ──────────────────────────────
+  - id: stop-committed
+    name: "No Uncommitted Changes"
+    description: "All work must be committed (pass) or reverted (fail)"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [Stop]
+    message: "Uncommitted changes. Commit (if tests pass) or revert (if broken) before stopping."
+    check:
+      type: cmd_check
+      params:
+        command: "git diff --quiet && git diff --cached --quiet"
+        working_dir: project
+        timeout: 5000
