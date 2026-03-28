@@ -25,6 +25,7 @@ func cmdSetup(args []string) {
 	scope := fs.String("scope", "", "Settings scope: user, project (default: interactive)")
 	remote := fs.String("remote", "", "Quick setup: create remote config + install hooks")
 	all := fs.Bool("all", false, "Select all default hooks (skip interactive checklist)")
+	platform := fs.String("platform", "claude", "Target platform: claude, codex")
 	fs.Parse(args)
 
 	fmt.Fprintln(os.Stderr)
@@ -64,28 +65,43 @@ func cmdSetup(args []string) {
 	fmt.Fprintf(os.Stderr, "  \033[32m%d hook(s) selected\033[0m\n\n", selected)
 
 	// ── Build hooks JSON ──
-	hooks := buildHooksJSON(items)
+	var hooks map[string]interface{}
+	if *platform == "codex" {
+		hooks = buildCodexHooksJSON(items)
+	} else {
+		hooks = buildHooksJSON(items)
+	}
 
 	// ── Select scope ──
 	var settingsFile string
+	isCodex := *platform == "codex"
+	platformDir := ".claude"
+	configFile := "settings.json"
+	if isCodex {
+		platformDir = ".codex"
+		configFile = "hooks.json"
+	}
+
 	if *scope != "" {
 		switch *scope {
 		case "user":
-			settingsFile = filepath.Join(homeDir(), ".claude", "settings.json")
+			settingsFile = filepath.Join(homeDir(), platformDir, configFile)
 		case "project":
-			settingsFile = filepath.Join(".claude", "settings.json")
+			settingsFile = filepath.Join(platformDir, configFile)
 		}
 	} else {
+		userPath := filepath.Join("~", platformDir, configFile)
+		projPath := filepath.Join(platformDir, configFile)
 		idx := promptChoice("Where to install hooks?", []string{
-			"User-level   (~/.claude/settings.json) — all projects",
-			"Project-level (.claude/settings.json)  — this project",
+			fmt.Sprintf("User-level   (%s) — all projects", userPath),
+			fmt.Sprintf("Project-level (%s)  — this project", projPath),
 			"Print only   — show JSON, don't write",
 		}, 0)
 		switch idx {
 		case 0:
-			settingsFile = filepath.Join(homeDir(), ".claude", "settings.json")
+			settingsFile = filepath.Join(homeDir(), platformDir, configFile)
 		case 1:
-			settingsFile = filepath.Join(".claude", "settings.json")
+			settingsFile = filepath.Join(platformDir, configFile)
 		case 2:
 			settingsFile = ""
 		}
@@ -99,20 +115,36 @@ func cmdSetup(args []string) {
 	fmt.Fprintf(os.Stderr, "%s\n\n", pretty)
 
 	if settingsFile == "" {
-		fmt.Fprintln(os.Stderr, "  Paste the above into your Claude Code settings.json")
+		fmt.Fprintf(os.Stderr, "  Paste the above into your %s config\n", *platform)
 		return
 	}
 
-	applyHooks(settingsFile, hooks)
+	if isCodex {
+		applyHooksCodex(settingsFile, hooks)
+	} else {
+		applyHooks(settingsFile, hooks)
+	}
 
-	// Offer to install Claude Code skills
+	// Offer to install skills
 	fmt.Fprintln(os.Stderr)
-	if promptYN("Install Claude Code skills (/constitution)?", true) {
+	platformLabel := "Claude Code"
+	if isCodex {
+		platformLabel = "Codex"
+	}
+	if promptYN(fmt.Sprintf("Install %s skills (/constitution)?", platformLabel), true) {
 		skillScope := "project"
-		if settingsFile == filepath.Join(homeDir(), ".claude", "settings.json") {
+		if strings.Contains(settingsFile, homeDir()) {
 			skillScope = "user"
 		}
-		cmdSkillInstall([]string{"--scope", skillScope})
+		installArgs := []string{"--scope", skillScope}
+		if isCodex {
+			installArgs = append(installArgs, "--platform", "codex")
+		}
+		cmdSkillInstall(installArgs)
+	}
+
+	if isCodex {
+		printHint("Enable hooks in Codex: set codex_hooks = true in config.toml")
 	}
 }
 
@@ -181,6 +213,84 @@ func buildHooksJSON(items []checklistItem) map[string]interface{} {
 	}
 
 	return hooks
+}
+
+// buildCodexHooksJSON builds hooks for OpenAI Codex.
+// Codex currently only supports Bash tool.
+func buildCodexHooksJSON(items []checklistItem) map[string]interface{} {
+	hooks := make(map[string]interface{})
+
+	type codexHookDef struct {
+		Type          string `json:"type"`
+		Command       string `json:"command"`
+		Timeout       int    `json:"timeout"`
+		StatusMessage string `json:"statusMessage,omitempty"`
+	}
+	type codexHookEntry struct {
+		Matcher string         `json:"matcher,omitempty"`
+		Hooks   []codexHookDef `json:"hooks"`
+	}
+
+	entry := func(matcher, status string, timeout int) codexHookEntry {
+		return codexHookEntry{
+			Matcher: matcher,
+			Hooks:   []codexHookDef{{Type: "command", Command: "constitution", Timeout: timeout, StatusMessage: status}},
+		}
+	}
+
+	if items[0].Selected { // SessionStart
+		hooks["SessionStart"] = []codexHookEntry{entry("", "Checking constitution rules", 5)}
+	}
+	if items[1].Selected { // UserPromptSubmit
+		hooks["UserPromptSubmit"] = []codexHookEntry{entry("", "Validating prompt", 5)}
+	}
+
+	// Codex only supports Bash tool currently
+	if items[2].Selected || items[3].Selected || items[4].Selected { // Any PreToolUse
+		hooks["PreToolUse"] = []codexHookEntry{entry("Bash", "Validating command", 5)}
+	}
+
+	if items[5].Selected { // PostToolUse
+		hooks["PostToolUse"] = []codexHookEntry{entry("Bash", "Checking output", 60)}
+	}
+	if items[6].Selected { // Stop
+		hooks["Stop"] = []codexHookEntry{entry("", "Running completion checks", 180)}
+	}
+
+	return hooks
+}
+
+// applyHooksCodex writes a standalone hooks.json for Codex.
+func applyHooksCodex(hooksFile string, hooks map[string]interface{}) {
+	os.MkdirAll(filepath.Dir(hooksFile), 0o755)
+
+	// Codex hooks.json is standalone — just {"hooks": {...}}
+	existing := make(map[string]interface{})
+	if data, err := os.ReadFile(hooksFile); err == nil {
+		json.Unmarshal(data, &existing)
+	}
+
+	// Remove old constitution hooks and merge new ones
+	existingHooks, _ := existing["hooks"].(map[string]interface{})
+	if existingHooks == nil {
+		existingHooks = make(map[string]interface{})
+	}
+
+	for event, entries := range hooks {
+		existingHooks[event] = entries
+	}
+
+	existing["hooks"] = existingHooks
+
+	data, _ := json.MarshalIndent(existing, "", "  ")
+	if err := os.WriteFile(hooksFile, data, 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "  \033[31mError writing %s: %v\033[0m\n", hooksFile, err)
+		os.Exit(1)
+	}
+
+	fmt.Fprintf(os.Stderr, "  \033[32m✓\033[0m Hooks written to %s\n", hooksFile)
+	fmt.Fprintln(os.Stderr, "  Restart Codex for hooks to take effect.")
+	fmt.Fprintln(os.Stderr)
 }
 
 func applyHooks(settingsFile string, hooks map[string]interface{}) {

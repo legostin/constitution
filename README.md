@@ -116,6 +116,28 @@ constitution init --workflow strict-security  # Maximum security
 
 Each pattern is a complete `.constitution.yaml` with pre-configured rules. You can combine them: create a pattern as a base, then add rules via `constitution rules add`.
 
+## Platform Support
+
+Constitution supports multiple AI agent platforms:
+
+| Platform | Setup Command | Config Location |
+|----------|-------------|-----------------|
+| **Claude Code** | `constitution setup --platform claude` (default) | `.claude/settings.json` |
+| **OpenAI Codex** | `constitution setup --platform codex` | `.codex/hooks.json` |
+
+### OpenAI Codex
+
+```bash
+constitution setup --platform codex --scope project --all
+```
+
+Codex hooks use the same JSON stdin/stdout protocol as Claude Code. Limitations:
+- Only `Bash` tool is currently supported (no Read/Write/Edit/Glob/Grep matchers)
+- Requires `codex_hooks = true` in `config.toml`
+- Config is standalone `.codex/hooks.json` (not embedded in settings.json)
+
+All constitution rules, check types, and orchestration patterns work identically on both platforms.
+
 ## Server Deployment (for Companies)
 
 The Platform team runs `constitutiond` with the company's rules. Developers connect via `constitution setup --remote URL`.

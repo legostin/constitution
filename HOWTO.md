@@ -28,6 +28,34 @@ constitution validate
 # 5. Restart Claude Code
 ```
 
+### Setup for OpenAI Codex
+
+Constitution also supports OpenAI Codex hooks (same rule engine, same config format):
+
+```bash
+# 1. Install the binary (same as Claude Code)
+go install github.com/legostin/constitution/cmd/constitution@latest
+
+# 2. Create a config (same .constitution.yaml)
+constitution init
+
+# 3. Install hooks for Codex
+constitution setup --platform codex --scope project
+# Hooks written to .codex/hooks.json
+
+# 4. Enable hooks in Codex config.toml
+# codex_hooks = true
+
+# 5. Restart Codex
+```
+
+**Codex limitations:**
+- Only `Bash` tool is supported (no Read/Write/Edit/Glob/Grep matchers)
+- Config is standalone `.codex/hooks.json` (not embedded in settings)
+- Feature must be enabled via `codex_hooks = true` in `config.toml`
+
+All rules and check types work identically on both platforms.
+
 ### Installing for all projects (globally)
 
 To make constitution work for any project on the machine, not just the current one:

@@ -36,29 +36,35 @@ func cmdSkillInstall(args []string) {
 	fs := flag.NewFlagSet("skill install", flag.ExitOnError)
 	scope := fs.String("scope", "", "Scope: user (all projects) or project (this project)")
 	quiet := fs.Bool("quiet", false, "Suppress output (for non-interactive use)")
+	plat := fs.String("platform", "claude", "Platform: claude, codex")
 	fs.Parse(args)
+
+	platformDir := ".claude"
+	if *plat == "codex" {
+		platformDir = ".codex"
+	}
 
 	var skillDir string
 	if *scope != "" {
 		switch *scope {
 		case "user":
-			skillDir = filepath.Join(homeDir(), ".claude", "skills")
+			skillDir = filepath.Join(homeDir(), platformDir, "skills")
 		case "project":
-			skillDir = filepath.Join(".claude", "skills")
+			skillDir = filepath.Join(platformDir, "skills")
 		default:
 			fmt.Fprintf(os.Stderr, "Unknown scope: %s (user or project)\n", *scope)
 			os.Exit(1)
 		}
 	} else {
 		idx := promptChoice("Where to install skills:", []string{
-			"User-level   (~/.claude/skills/) — all projects",
-			"Project-level (.claude/skills/)  — this project",
+			fmt.Sprintf("User-level   (~/%s/skills/) — all projects", platformDir),
+			fmt.Sprintf("Project-level (%s/skills/)  — this project", platformDir),
 		}, 0)
 		switch idx {
 		case 0:
-			skillDir = filepath.Join(homeDir(), ".claude", "skills")
+			skillDir = filepath.Join(homeDir(), platformDir, "skills")
 		case 1:
-			skillDir = filepath.Join(".claude", "skills")
+			skillDir = filepath.Join(platformDir, "skills")
 		}
 	}
 

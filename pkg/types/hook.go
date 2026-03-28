@@ -11,6 +11,9 @@ type HookInput struct {
 	PermissionMode string `json:"permission_mode,omitempty"`
 	HookEventName  string `json:"hook_event_name"`
 
+	// Codex-specific
+	TurnID string `json:"turn_id,omitempty"`
+
 	// PreToolUse / PostToolUse
 	ToolName  string          `json:"tool_name,omitempty"`
 	ToolInput json.RawMessage `json:"tool_input,omitempty"`

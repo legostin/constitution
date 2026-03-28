@@ -27,6 +27,11 @@ What would you like to do?
 
 Step-by-step process:
 
+### Step 0: Determine platform
+Ask the user which platform they use:
+- **Claude Code** (default): `constitution setup --platform claude`
+- **OpenAI Codex**: `constitution setup --platform codex`
+
 ### Step 1: Check prerequisites
 ```bash
 which constitution    # Binary available?
