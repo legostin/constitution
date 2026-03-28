@@ -102,6 +102,7 @@ Ready-made configurations for popular agent management patterns:
 constitution init --workflow autonomous       # Full autonomy + guardrails
 constitution init --workflow plan-first       # Plan → Execute → Test
 constitution init --workflow ooda-loop        # OODA: Observe → Orient → Decide → Act
+constitution init --workflow ralph-loop       # Continuous autonomous loop until PRD complete
 constitution init --workflow strict-security  # Maximum security
 ```
 
@@ -110,6 +111,7 @@ constitution init --workflow strict-security  # Maximum security
 | **Autonomous** | Agent makes decisions on its own, safety guardrails | skill_inject (self-critique), cmd_validate, secret_regex, Stop gates |
 | **Plan-First** | Plan first, then code, then tests | skill_inject (workflow), prompt_modify (reminder), Stop: build+tests+commit |
 | **OODA Loop** | Military framework: observe → orient → decide → act | skill_inject (OODA cycle), prompt_modify (cycle reminder) |
+| **Ralph Loop** | Continuous autonomous loop until all PRD tasks complete | skill_inject (loop behavior), Stop: build+tests+committed |
 | **Strict Security** | Maximum protection | Extended secrets, Yelp detect-secrets, strict ACL, expanded cmd blocklist, repo control |
 
 Each pattern is a complete `.constitution.yaml` with pre-configured rules. You can combine them: create a pattern as a base, then add rules via `constitution rules add`.

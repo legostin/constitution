@@ -1,0 +1,150 @@
+version: "1"
+name: "ralph-loop"
+
+# Ralph Loop — Continuous Autonomous Agent Loop
+#
+# The agent runs repeatedly until all PRD/task items are complete.
+# State lives on disk, not in the model's context.
+# Each iteration: read state → pick task → execute → commit → verify.
+# Stop hook blocks exit until all tasks are done.
+#
+# Based on the Ralph Loop pattern by Geoffrey Huntley.
+# See: https://ghuntley.com/loop/
+
+settings:
+  log_level: "info"
+
+rules:
+  # ── Session: Ralph Loop Context ──────────────────────────────────
+  - id: ralph-context
+    name: "Ralph Loop Mode"
+    description: "Inject autonomous loop behavior at session start"
+    enabled: true
+    priority: 1
+    severity: audit
+    hook_events: [SessionStart]
+    check:
+      type: skill_inject
+      params:
+        context: |
+          RALPH LOOP MODE — Continuous Autonomous Iteration
+
+          You are operating in Ralph Loop mode. Your job is to work through
+          ALL tasks until everything is complete. Follow this cycle:
+
+          1. READ STATE — Check the PRD, task list, or TODO file for remaining work
+          2. PICK TASK — Select the next incomplete item
+          3. EXECUTE — Implement the task fully (code + tests)
+          4. COMMIT — Commit your changes with a clear message
+          5. VERIFY — Run tests, ensure build passes
+          6. UPDATE — Mark the task as done, update AGENTS.md with learnings
+          7. REPEAT — Go back to step 1
+
+          Rules:
+          - State lives on disk. Write progress to files, not just context.
+          - Commit after EACH completed task, not in batches.
+          - Update AGENTS.md with patterns, gotchas, and conventions you discover.
+          - Do NOT stop until ALL tasks are complete.
+          - If you're stuck on a task, document the blocker and move to the next one.
+          - Self-assess honestly: "Is this task truly done, or am I just hoping?"
+
+  # ── Prompt: Loop Reminder ────────────────────────────────────────
+  - id: ralph-prompt
+    name: "Ralph Loop Reminder"
+    description: "Reinforce loop behavior on every prompt"
+    enabled: true
+    priority: 5
+    severity: audit
+    hook_events: [UserPromptSubmit]
+    check:
+      type: prompt_modify
+      params:
+        system_context: |
+          Ralph Loop: Read state from disk. Pick next task. Execute. Commit. Verify. Repeat.
+          Do not stop until all tasks are complete.
+
+  # ── Secret Detection ─────────────────────────────────────────────
+  - id: secret-write
+    name: "Secret Detection"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Write, Edit]
+    check:
+      type: secret_regex
+      params:
+        scan_field: content
+        patterns:
+          - name: "AWS Access Key"
+            regex: "AKIA[0-9A-Z]{16}"
+          - name: "GitHub Token"
+            regex: "gh[ps]_[A-Za-z0-9_]{36,}"
+          - name: "Private Key"
+            regex: "-----BEGIN (RSA|EC|DSA|OPENSSH) PRIVATE KEY-----"
+        allow_patterns:
+          - "AKIAIOSFODNN7EXAMPLE"
+          - "(?i)test|example|dummy|placeholder"
+
+  # ── Command Validation ───────────────────────────────────────────
+  - id: cmd-validate
+    name: "Command Validation"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Bash]
+    check:
+      type: cmd_validate
+      params:
+        deny_patterns:
+          - name: "Root deletion"
+            regex: "rm\\s+-rf\\s+/"
+          - name: "Force push"
+            regex: "\\bgit\\s+push\\s+.*--force"
+          - name: "Hard reset"
+            regex: "\\bgit\\s+reset\\s+--hard"
+
+  # ── Stop: Build & Tests Gate ─────────────────────────────────────
+  - id: stop-build
+    name: "Build Must Succeed"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [Stop]
+    message: "Build failed. Fix it before stopping."
+    check:
+      type: cmd_check
+      params:
+        command: "go build ./..."
+        working_dir: project
+        timeout: 60000
+
+  - id: stop-tests
+    name: "Tests Must Pass"
+    enabled: true
+    priority: 2
+    severity: block
+    hook_events: [Stop]
+    message: "Tests failing. Fix them before stopping."
+    check:
+      type: cmd_check
+      params:
+        command: "go test ./... -count=1 -timeout=120s"
+        working_dir: project
+        timeout: 180000
+
+  # ── Stop: All Changes Committed ──────────────────────────────────
+  - id: stop-committed
+    name: "No Uncommitted Changes"
+    enabled: true
+    priority: 3
+    severity: block
+    hook_events: [Stop]
+    message: "Uncommitted changes. Commit before stopping — Ralph commits after each task."
+    check:
+      type: cmd_check
+      params:
+        command: "git diff --quiet && git diff --cached --quiet"
+        working_dir: project
+        timeout: 5000
