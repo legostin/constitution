@@ -23,5 +23,8 @@ var oodaLoopTemplate string
 //go:embed configs/strict-security.yaml
 var strictSecurityTemplate string
 
+//go:embed configs/ralph-loop.yaml
+var ralphLoopTemplate string
+
 //go:embed skills/constitution/SKILL.md
 var skillConstitution string

@@ -11,6 +11,7 @@ var workflowTemplates = map[string]string{
 	"autonomous":      autonomousTemplate,
 	"plan-first":      planFirstTemplate,
 	"ooda-loop":       oodaLoopTemplate,
+	"ralph-loop":      ralphLoopTemplate,
 	"strict-security": strictSecurityTemplate,
 }
 
@@ -43,7 +44,7 @@ func cmdInit(args []string) {
 		wf, ok := workflowTemplates[*workflow]
 		if !ok {
 			fmt.Fprintf(os.Stderr, "Unknown workflow: %s\n", *workflow)
-			fmt.Fprintln(os.Stderr, "Available: autonomous, plan-first, ooda-loop, strict-security")
+			fmt.Fprintln(os.Stderr, "Available: autonomous, plan-first, ooda-loop, ralph-loop, strict-security")
 			os.Exit(1)
 		}
 		content = wf
@@ -68,6 +69,7 @@ func cmdInit(args []string) {
 			"Autonomous     — full autonomy with safety guardrails",
 			"Plan-First     — plan → execute → test workflow",
 			"OODA Loop      — observe → orient → decide → act cycle",
+			"Ralph Loop     — continuous autonomous loop until PRD complete",
 			"Strict Security — maximum protection, extended blocklists",
 		}, 0)
 
@@ -94,6 +96,8 @@ func cmdInit(args []string) {
 		case 6:
 			content = oodaLoopTemplate
 		case 7:
+			content = ralphLoopTemplate
+		case 8:
 			content = strictSecurityTemplate
 		}
 	}
