@@ -28,3 +28,15 @@ var ralphLoopTemplate string
 
 //go:embed skills/constitution/SKILL.md
 var skillConstitution string
+
+var workflowTemplates = map[string]string{
+	"autonomous":      autonomousTemplate,
+	"plan-first":      planFirstTemplate,
+	"ooda-loop":       oodaLoopTemplate,
+	"ralph-loop":      ralphLoopTemplate,
+	"strict-security": strictSecurityTemplate,
+}
+
+var skillFiles = map[string]string{
+	"constitution": skillConstitution,
+}

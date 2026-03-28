@@ -31,8 +31,6 @@ func main() {
 
 func runCLI(args []string) {
 	switch args[0] {
-	case "init":
-		cmdInit(args[1:])
 	case "setup":
 		cmdSetup(args[1:])
 	case "validate":
@@ -41,8 +39,6 @@ func runCLI(args []string) {
 		cmdUninstall(args[1:])
 	case "rules":
 		cmdRules(args[1:])
-	case "skill":
-		cmdSkill(args[1:])
 	case "version", "--version", "-v":
 		fmt.Fprintf(os.Stderr, "constitution %s\n", version)
 	case "help", "--help", "-h":
@@ -60,32 +56,26 @@ func runCLI(args []string) {
 }
 
 func cmdHelp() {
-	fmt.Fprint(os.Stderr, `Constitution — rule enforcement for Claude Code
+	fmt.Fprint(os.Stderr, `Constitution — rule enforcement for AI agents
 
 Usage:
   constitution                 Hook handler mode (reads JSON from stdin)
-  constitution init            Create .constitution.yaml from template
-  constitution setup           Install hooks (Claude Code or Codex)
-  constitution setup --platform codex  Install hooks for OpenAI Codex
-  constitution validate        Validate configuration file
-  constitution uninstall       Remove hooks from Claude Code settings
-  constitution rules           Interactive rule manager (wizard)
-  constitution rules add       Add a new rule step-by-step
-  constitution rules list      List all rules
-  constitution rules edit <id> Edit a rule
+  constitution setup           Guided setup wizard (config + hooks + skills)
+  constitution validate        Validate configuration
+  constitution uninstall       Remove hooks and skills
+  constitution rules           Interactive rule manager
+  constitution rules list      List all rules (--json for machine output)
+  constitution rules add       Add a rule (interactive or --id/--json flags)
+  constitution rules edit <id> Edit a rule (by ID or number)
   constitution rules delete <id> Delete a rule
   constitution rules toggle <id> Enable/disable a rule
-  constitution skill install   Install Claude Code skills (/constitution, /constitution-rules)
-  constitution skill uninstall Remove skills
-  constitution skill list      Show installed skills
   constitution version         Show version
 
 Examples:
-  constitution init --template minimal
-  constitution init --remote https://constitution.company.com
-  constitution setup --scope user
-  constitution setup --remote https://constitution.company.com
-  constitution validate --config .constitution.yaml
+  constitution setup
+  constitution setup --platform codex --scope project --yes
+  constitution rules list --json
+  constitution validate
 
 `)
 }

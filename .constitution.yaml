@@ -15,6 +15,37 @@ remote:
 plugins: []
 
 rules:
+  # ── OODA Loop Framework ──────────────────────────────────────────
+  - id: ooda-context
+    name: "OODA Loop Framework"
+    description: "Inject OODA decision-making framework at session start"
+    enabled: true
+    priority: 1
+    severity: audit
+    hook_events: [SessionStart]
+    check:
+      type: skill_inject
+      params:
+        context: |
+          You operate using the OODA Loop — a continuous decision-making cycle:
+          OBSERVE — Gather information. Read before you write.
+          ORIENT — Analyze context, constraints, risks.
+          DECIDE — Choose the simplest approach. Consider alternatives.
+          ACT — Execute. Run tests. Verify results.
+          After every ACT, start a new OBSERVE cycle.
+
+  - id: ooda-reminder
+    name: "OODA Cycle Reminder"
+    enabled: true
+    priority: 5
+    severity: audit
+    hook_events: [UserPromptSubmit]
+    check:
+      type: prompt_modify
+      params:
+        system_context: |
+          OODA: What do you OBSERVE? How do you ORIENT? What do you DECIDE? Then ACT.
+
   # ── Repository Access Control ──────────────────────────────────
   - id: repo-access
     name: "Repository Allowlist"

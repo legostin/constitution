@@ -132,15 +132,11 @@ func cmdSetup(args []string) {
 		platformLabel = "Codex"
 	}
 	if promptYN(fmt.Sprintf("Install %s skills (/constitution)?", platformLabel), true) {
-		skillScope := "project"
+		skillDir := filepath.Join(platformDir, "skills")
 		if strings.Contains(settingsFile, homeDir()) {
-			skillScope = "user"
+			skillDir = filepath.Join(homeDir(), platformDir, "skills")
 		}
-		installArgs := []string{"--scope", skillScope}
-		if isCodex {
-			installArgs = append(installArgs, "--platform", "codex")
-		}
-		cmdSkillInstall(installArgs)
+		installSkills(skillDir)
 	}
 
 	if isCodex {
@@ -437,6 +433,19 @@ func cmdUninstall(args []string) {
 	os.WriteFile(settingsFile, out, 0o644)
 
 	fmt.Fprintf(os.Stderr, "  \033[32m✓\033[0m Removed %d constitution hook(s) from %s\n", removed, settingsFile)
+}
+
+func installSkills(baseDir string) {
+	for name, content := range skillFiles {
+		dir := filepath.Join(baseDir, name)
+		os.MkdirAll(dir, 0o755)
+		path := filepath.Join(dir, "SKILL.md")
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			printError(fmt.Sprintf("Error writing %s: %v", path, err))
+			continue
+		}
+		printSuccess(fmt.Sprintf("/%s → %s", name, path))
+	}
 }
 
 func homeDir() string {
