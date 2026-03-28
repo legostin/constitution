@@ -65,7 +65,8 @@ func cmdHelp() {
 Usage:
   constitution                 Hook handler mode (reads JSON from stdin)
   constitution init            Create .constitution.yaml from template
-  constitution setup           Install hooks into Claude Code settings
+  constitution setup           Install hooks (Claude Code or Codex)
+  constitution setup --platform codex  Install hooks for OpenAI Codex
   constitution validate        Validate configuration file
   constitution uninstall       Remove hooks from Claude Code settings
   constitution rules           Interactive rule manager (wizard)
