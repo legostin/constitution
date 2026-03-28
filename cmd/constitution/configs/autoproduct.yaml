@@ -143,11 +143,33 @@ rules:
           - "**/SPEC.md"
 
   # ── Stop: Verify iteration quality ──────────────────────────────
+  - id: stop-validation
+    name: "Autoproduct Stop Validation"
+    description: "Agent must verify all SPEC.md requirements are addressed before stopping"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [Stop]
+    message: |
+      AUTOPRODUCT STOP CHECK:
+      Before stopping, verify:
+      1. All SPEC.md requirements are implemented or blockers are logged
+      2. Build passes and all tests pass
+      3. PROGRESS.md is updated with results of each iteration
+      4. All changes are committed
+      Include VERIFIED_COMPLETE in your final message.
+    check:
+      type: cel
+      params:
+        expression: >
+          hook_event_name == "Stop" &&
+          !last_assistant_message.contains("VERIFIED_COMPLETE")
+
   - id: stop-committed
     name: "No Uncommitted Changes"
     description: "All work must be committed (pass) or reverted (fail)"
     enabled: true
-    priority: 1
+    priority: 2
     severity: block
     hook_events: [Stop]
     message: "Uncommitted changes. Commit (if tests pass) or revert (if broken) before stopping."
