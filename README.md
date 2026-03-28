@@ -24,10 +24,22 @@ A single binary serves all hook events. It reads JSON from stdin, determines the
 
 ## Quick Start
 
+### Install
+
 ```bash
 go install github.com/legostin/constitution/cmd/constitution@latest
 constitution setup
 ```
+
+Or download a pre-built binary from [Releases](https://github.com/legostin/constitution/releases).
+
+### Update
+
+```bash
+go install github.com/legostin/constitution/cmd/constitution@latest
+```
+
+After updating, re-run `constitution setup` to update hooks and skills if the hook format changed. Your `.constitution.yaml` rules are preserved.
 
 `constitution setup` is a guided wizard that walks you through platform selection, security rules, orchestration patterns, stop validation, skills, and hook installation -- all in one command.
 

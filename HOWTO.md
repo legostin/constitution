@@ -23,6 +23,18 @@ constitution validate
 # 4. Restart your agent
 ```
 
+### Updating
+
+```bash
+# Pull the latest version
+go install github.com/legostin/constitution/cmd/constitution@latest
+
+# Re-run setup to update hooks and skills (rules are preserved)
+constitution setup
+```
+
+Your `.constitution.yaml` rules are never overwritten by setup — only hooks and skills are updated. If the hook format changed between versions, `constitution setup` will regenerate them.
+
 `constitution setup` is a 7-step interactive wizard that:
 1. Asks which platform you use (Claude Code, OpenAI Codex, or both)
 2. Optionally connects to a remote rule server
