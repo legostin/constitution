@@ -50,6 +50,7 @@ constitution init --template minimal    # Secrets + command validation only
 constitution init --workflow autonomous       # Full autonomy + guardrails
 constitution init --workflow plan-first       # Plan -> Execute -> Test
 constitution init --workflow ooda-loop        # OODA: Observe -> Orient -> Decide -> Act
+constitution init --workflow ralph-loop       # Continuous autonomous loop until PRD complete
 constitution init --workflow strict-security  # Maximum protection
 ```
 
@@ -251,6 +252,7 @@ Ready-made configurations for agent behavior management:
 | **Autonomous** | `constitution init --workflow autonomous` | Full autonomy, self-critique, safety guardrails |
 | **Plan-First** | `constitution init --workflow plan-first` | Mandatory planning before implementation, Stop gates |
 | **OODA Loop** | `constitution init --workflow ooda-loop` | Observe->Orient->Decide->Act cycle, reflection |
+| **Ralph Loop** | `constitution init --workflow ralph-loop` | Continuous autonomous loop until all PRD tasks complete |
 | **Strict Security** | `constitution init --workflow strict-security` | Maximum protection: secrets, ACL, extended blocklists |
 
 Each pattern is a complete `.constitution.yaml`. You can combine: create a pattern as a base, then add rules via `constitution rules add`.
@@ -259,6 +261,7 @@ When choosing a pattern for the user:
 - Developer wants speed → **autonomous**
 - Team requires process → **plan-first**
 - Analytical approach needed → **ooda-loop**
+- Long-running autonomous tasks from PRD → **ralph-loop**
 - Working with sensitive data → **strict-security**
 
 ## Hook Events
