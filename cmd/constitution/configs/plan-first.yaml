@@ -1,0 +1,149 @@
+version: "1"
+name: "plan-first"
+
+# Plan → Execute → Test
+# Agent must plan before implementing. Structured workflow with checkpoints.
+
+settings:
+  log_level: "info"
+
+rules:
+  # ── Session: Planning Requirement ────────────────────────────────
+  - id: plan-context
+    name: "Plan-First Workflow"
+    description: "Inject planning requirement at session start"
+    enabled: true
+    priority: 10
+    severity: audit
+    hook_events: [SessionStart]
+    check:
+      type: skill_inject
+      params:
+        context: |
+          WORKFLOW: Plan → Execute → Test
+
+          You MUST follow this workflow for every task:
+          1. UNDERSTAND — Read and analyze the task requirements
+          2. PLAN — Create a clear, step-by-step implementation plan
+          3. CONFIRM — Present the plan and wait for user approval
+          4. IMPLEMENT — Execute the plan step by step
+          5. TEST — Write and run tests for all changes
+          6. DOCUMENT — Update documentation if needed
+          7. VERIFY — Run full test suite, ensure build passes
+
+          Do NOT start writing code until you have a plan.
+          Do NOT skip the testing phase.
+
+  # ── Prompt: Plan Reminder ────────────────────────────────────────
+  - id: plan-reminder
+    name: "Plan Reminder"
+    description: "Remind about planning workflow on every prompt"
+    enabled: true
+    priority: 5
+    severity: audit
+    hook_events: [UserPromptSubmit]
+    check:
+      type: prompt_modify
+      params:
+        system_context: |
+          Remember: Plan before implementing. Test after implementing.
+          If you haven't created a plan yet, start with that.
+
+  # ── Secret Detection ─────────────────────────────────────────────
+  - id: secret-write
+    name: "Secret Detection"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Write, Edit]
+    check:
+      type: secret_regex
+      params:
+        scan_field: content
+        patterns:
+          - name: "AWS Access Key"
+            regex: "AKIA[0-9A-Z]{16}"
+          - name: "GitHub Token"
+            regex: "gh[ps]_[A-Za-z0-9_]{36,}"
+          - name: "Private Key"
+            regex: "-----BEGIN (RSA|EC|DSA|OPENSSH) PRIVATE KEY-----"
+        allow_patterns:
+          - "AKIAIOSFODNN7EXAMPLE"
+          - "(?i)test|example|dummy|placeholder"
+
+  # ── Command Validation ───────────────────────────────────────────
+  - id: cmd-validate
+    name: "Command Validation"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [PreToolUse]
+    tool_match: [Bash]
+    check:
+      type: cmd_validate
+      params:
+        deny_patterns:
+          - name: "Root deletion"
+            regex: "rm\\s+-rf\\s+/"
+          - name: "Force push"
+            regex: "\\bgit\\s+push\\s+\\S+\\s+--force"
+          - name: "Hard reset"
+            regex: "\\bgit\\s+reset\\s+--hard"
+
+  # ── Stop: Verify Workflow Completion ─────────────────────────────
+  - id: stop-build
+    name: "Build Must Succeed"
+    enabled: true
+    priority: 1
+    severity: block
+    hook_events: [Stop]
+    message: "Build failed. Fix before stopping."
+    check:
+      type: cmd_check
+      params:
+        command: "go build ./..."
+        working_dir: project
+        timeout: 60000
+
+  - id: stop-tests
+    name: "Tests Must Pass"
+    enabled: true
+    priority: 2
+    severity: block
+    hook_events: [Stop]
+    message: "Tests are failing. The Test phase is not complete."
+    check:
+      type: cmd_check
+      params:
+        command: "go test ./... -count=1 -timeout=120s"
+        working_dir: project
+        timeout: 180000
+
+  - id: stop-committed
+    name: "Changes Must Be Committed"
+    enabled: true
+    priority: 3
+    severity: block
+    hook_events: [Stop]
+    message: "Uncommitted changes. Commit your work before stopping."
+    check:
+      type: cmd_check
+      params:
+        command: "git diff --quiet && git diff --cached --quiet"
+        working_dir: project
+        timeout: 5000
+
+  - id: stop-pushed
+    name: "Branch Must Be Pushed"
+    enabled: true
+    priority: 4
+    severity: block
+    hook_events: [Stop]
+    message: "Branch not pushed. Push before stopping."
+    check:
+      type: cmd_check
+      params:
+        command: "BRANCH=$(git rev-parse --abbrev-ref HEAD); git fetch origin $BRANCH --quiet 2>/dev/null; git diff --quiet $BRANCH..origin/$BRANCH 2>/dev/null"
+        working_dir: project
+        timeout: 10000
