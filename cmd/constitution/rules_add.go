@@ -19,16 +19,16 @@ var checkTypes = []struct {
 	name string
 	desc string
 }{
-	{"secret_regex", "Сканировать контент на секреты (regex)"},
-	{"dir_acl", "Контроль доступа к файлам/директориям"},
-	{"cmd_validate", "Валидация bash-команд"},
-	{"repo_access", "Контроль репозиториев"},
-	{"cel", "Кастомные CEL-выражения (продвинутый)"},
-	{"linter", "Запуск внешнего линтера"},
-	{"secret_yelp", "Yelp detect-secrets (28+ детекторов)"},
-	{"prompt_modify", "Модификация промптов"},
-	{"skill_inject", "Инжект контекста при старте"},
-	{"cmd_check", "Запуск shell-команды (pass/fail по exit code)"},
+	{"secret_regex", "Scan content for secrets (regex)"},
+	{"dir_acl", "File/directory access control"},
+	{"cmd_validate", "Bash command validation"},
+	{"repo_access", "Repository access control"},
+	{"cel", "Custom CEL expressions (advanced)"},
+	{"linter", "Run external linter"},
+	{"secret_yelp", "Yelp detect-secrets (28+ detectors)"},
+	{"prompt_modify", "Prompt modification"},
+	{"skill_inject", "Context injection at session start"},
+	{"cmd_check", "Run shell command (pass/fail on exit code)"},
 }
 
 func cmdRulesAdd(args []string) {
@@ -58,12 +58,12 @@ func cmdRulesAdd(args []string) {
 	if *fJSON {
 		data, err := io.ReadAll(os.Stdin)
 		if err != nil {
-			printError(fmt.Sprintf("Ошибка чтения stdin: %v", err))
+			printError(fmt.Sprintf("Failed to read stdin: %v", err))
 			os.Exit(1)
 		}
 		var rule types.Rule
 		if err := json.Unmarshal(data, &rule); err != nil {
-			printError(fmt.Sprintf("Невалидный JSON: %v", err))
+			printError(fmt.Sprintf("Invalid JSON: %v", err))
 			os.Exit(1)
 		}
 		policy.Rules = append(policy.Rules, rule)
@@ -71,7 +71,7 @@ func cmdRulesAdd(args []string) {
 			printError(err.Error())
 			os.Exit(1)
 		}
-		printSuccess(fmt.Sprintf("Правило %q добавлено", rule.ID))
+		printSuccess(fmt.Sprintf("Rule %q added", rule.ID))
 		return
 	}
 
@@ -101,7 +101,7 @@ func cmdRulesAdd(args []string) {
 		if *fParams != "" {
 			var params map[string]interface{}
 			if err := json.Unmarshal([]byte(*fParams), &params); err != nil {
-				printError(fmt.Sprintf("Невалидный JSON в --params: %v", err))
+				printError(fmt.Sprintf("Invalid JSON in --params: %v", err))
 				os.Exit(1)
 			}
 			rule.Check.Params = params
@@ -109,11 +109,11 @@ func cmdRulesAdd(args []string) {
 
 		// Validate
 		if len(rule.HookEvents) == 0 {
-			printError("--events обязателен")
+			printError("--events is required")
 			os.Exit(1)
 		}
 		if rule.Check.Type == "" {
-			printError("--check-type обязателен")
+			printError("--check-type is required")
 			os.Exit(1)
 		}
 
@@ -122,7 +122,7 @@ func cmdRulesAdd(args []string) {
 			printError(err.Error())
 			os.Exit(1)
 		}
-		printSuccess(fmt.Sprintf("Правило %q добавлено в %s", rule.ID, configPath))
+		printSuccess(fmt.Sprintf("Rule %q added to %s", rule.ID, configPath))
 		return
 	}
 
@@ -148,7 +148,7 @@ func cmdRulesAdd(args []string) {
 	checkType := wizardCheckType()
 
 	// Step 6: Parameters
-	printSection("Шаг 6/7: Параметры")
+	printSection("Step 6/7: Parameters")
 	params := wizardParams(checkType)
 
 	// Step 7: Message + Preview
@@ -172,8 +172,8 @@ func cmdRulesAdd(args []string) {
 
 	previewRuleYAML(rule)
 
-	if !promptYN("Сохранить это правило?", true) {
-		fmt.Fprintln(os.Stderr, "  Отменено.")
+	if !promptYN("Save this rule?", true) {
+		fmt.Fprintln(os.Stderr, "  Cancelled.")
 		return
 	}
 
@@ -183,27 +183,27 @@ func cmdRulesAdd(args []string) {
 		os.Exit(1)
 	}
 
-	printSuccess(fmt.Sprintf("Правило %q добавлено в %s", id, configPath))
-	printHint("Запустите 'constitution validate' для проверки конфигурации")
+	printSuccess(fmt.Sprintf("Rule %q added to %s", id, configPath))
+	printHint("Run 'constitution validate' to verify configuration")
 }
 
 // ─── Wizard Steps ───────────────────────────────────────────────────
 
 func wizardIdentity(existingIDs map[string]bool) (id, name, desc string) {
-	printSection("Шаг 1/7: Идентификация правила")
+	printSection("Step 1/7: Rule Identity")
 
-	printHint("Rule ID (уникальный, lowercase, дефисы)")
-	printHint("Примеры: secret-write, cmd-validate, lint-go")
+	printHint("Rule ID (unique, lowercase, hyphens)")
+	printHint("Examples: secret-write, cmd-validate, lint-go")
 	fmt.Fprintln(os.Stderr)
 
 	for {
 		id = promptStringRequired("ID")
 		if !ruleIDRegex.MatchString(id) {
-			printError("ID должен состоять из a-z, 0-9 и дефисов, начинаться с буквы")
+			printError("ID must contain only a-z, 0-9 and hyphens, start with a letter")
 			continue
 		}
 		if existingIDs[id] {
-			printError(fmt.Sprintf("ID %q уже существует", id))
+			printError(fmt.Sprintf("ID %q already exists", id))
 			continue
 		}
 		break
@@ -212,33 +212,33 @@ func wizardIdentity(existingIDs map[string]bool) (id, name, desc string) {
 	// Default name from ID: "cmd-validate" -> "Cmd Validate"
 	defaultName := strings.ReplaceAll(id, "-", " ")
 	defaultName = strings.Title(defaultName)
-	name = promptString("Название", defaultName)
+	name = promptString("Name", defaultName)
 
-	desc = promptString("Описание (опционально)", "")
+	desc = promptString("Description (optional)", "")
 	return
 }
 
 func wizardBehavior() (enabled bool, severity types.Severity, priority int) {
-	printSection("Шаг 2/7: Поведение")
+	printSection("Step 2/7: Behavior")
 
-	enabled = promptYN("Включить правило сразу?", true)
+	enabled = promptYN("Enable rule immediately?", true)
 	fmt.Fprintln(os.Stderr)
 	severity = promptSeverity()
 	fmt.Fprintln(os.Stderr)
-	priority = promptInt("Priority (меньше = проверяется раньше, 1-100)", 10, 1, 100)
+	priority = promptInt("Priority (lower = checked first, 1-100)", 10, 1, 100)
 	return
 }
 
 func wizardHookEvents() []string {
-	printSection("Шаг 3/7: Когда запускать")
+	printSection("Step 3/7: Hook Events")
 
 	for {
-		items := checklist("Выберите hook events:", []checklistItem{
-			{"SessionStart", "Начало сессии Claude Code", false},
-			{"UserPromptSubmit", "Пользователь отправляет промпт", false},
-			{"PreToolUse", "Перед использованием инструмента", false},
-			{"PostToolUse", "После использования инструмента", false},
-			{"Stop", "Агент завершает работу", false},
+		items := checklist("Select hook events:", []checklistItem{
+			{"SessionStart", "Claude Code session begins", false},
+			{"UserPromptSubmit", "User sends a prompt", false},
+			{"PreToolUse", "Before tool execution", false},
+			{"PostToolUse", "After tool execution", false},
+			{"Stop", "Agent is stopping", false},
 		})
 
 		var events []string
@@ -248,7 +248,7 @@ func wizardHookEvents() []string {
 			}
 		}
 		if len(events) == 0 {
-			printError("Выберите хотя бы одно событие")
+			printError("Select at least one event")
 			continue
 		}
 		return events
@@ -256,7 +256,6 @@ func wizardHookEvents() []string {
 }
 
 func wizardToolMatch(hookEvents []string) []string {
-	// Only show tool match if tool-related events are selected
 	hasToolEvent := false
 	for _, e := range hookEvents {
 		if e == "PreToolUse" || e == "PostToolUse" {
@@ -265,22 +264,22 @@ func wizardToolMatch(hookEvents []string) []string {
 		}
 	}
 	if !hasToolEvent {
-		printSection("Шаг 4/7: Фильтр инструментов")
-		printHint("Пропущено — нет tool-related событий")
+		printSection("Step 4/7: Tool Filter")
+		printHint("Skipped — no tool-related events selected")
 		return nil
 	}
 
-	printSection("Шаг 4/7: Фильтр инструментов")
-	printHint("Оставьте всё невыбранным чтобы срабатывать на ВСЕ инструменты")
+	printSection("Step 4/7: Tool Filter")
+	printHint("Leave all unselected to match ALL tools")
 	fmt.Fprintln(os.Stderr)
 
-	items := checklist("Какие инструменты?", []checklistItem{
-		{"Bash", "Shell-команды", false},
-		{"Read", "Чтение файлов", false},
-		{"Write", "Создание файлов", false},
-		{"Edit", "Редактирование файлов", false},
-		{"Glob", "Поиск файлов", false},
-		{"Grep", "Поиск в содержимом", false},
+	items := checklist("Which tools?", []checklistItem{
+		{"Bash", "Shell commands", false},
+		{"Read", "File reading", false},
+		{"Write", "File creation", false},
+		{"Edit", "File editing", false},
+		{"Glob", "File search", false},
+		{"Grep", "Content search", false},
 	})
 
 	var tools []string
@@ -293,22 +292,22 @@ func wizardToolMatch(hookEvents []string) []string {
 }
 
 func wizardCheckType() string {
-	printSection("Шаг 5/7: Тип проверки")
+	printSection("Step 5/7: Check Type")
 
 	var options []string
 	for _, ct := range checkTypes {
 		options = append(options, fmt.Sprintf("%-14s — %s", ct.name, ct.desc))
 	}
 
-	idx := promptChoice("Какую проверку выполнять:", options, 0)
+	idx := promptChoice("Which check to perform:", options, 0)
 	return checkTypes[idx].name
 }
 
 func wizardMessage() string {
-	printSection("Шаг 7/7: Сообщение и подтверждение")
+	printSection("Step 7/7: Message & Confirmation")
 
-	printHint("Custom message (показывается при блокировке/предупреждении)")
-	printHint("Оставьте пустым для сообщения по умолчанию")
+	printHint("Custom message (shown on block/warning)")
+	printHint("Leave empty for default message")
 	fmt.Fprintln(os.Stderr)
 
 	return promptString("Message", "")

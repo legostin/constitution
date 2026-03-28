@@ -21,26 +21,26 @@ func cmdRules(args []string) {
 		cmdRulesAdd(args[1:])
 	case "edit":
 		if len(args) < 2 {
-			printError("Укажите ID правила: constitution rules edit <id>")
+			printError("Specify rule ID: constitution rules edit <id>")
 			os.Exit(1)
 		}
 		cmdRulesEdit(args[1])
 	case "delete":
 		if len(args) < 2 {
-			printError("Укажите ID правила: constitution rules delete <id>")
+			printError("Specify rule ID: constitution rules delete <id>")
 			os.Exit(1)
 		}
 		cmdRulesDelete(args[1], args[2:])
 	case "toggle":
 		if len(args) < 2 {
-			printError("Укажите ID правила: constitution rules toggle <id>")
+			printError("Specify rule ID: constitution rules toggle <id>")
 			os.Exit(1)
 		}
 		cmdRulesToggle(args[1], args[2:])
 	case "help", "--help", "-h":
 		rulesHelp()
 	default:
-		printError(fmt.Sprintf("Неизвестная подкоманда: %s", args[0]))
+		printError(fmt.Sprintf("Unknown subcommand: %s", args[0]))
 		rulesHelp()
 		os.Exit(1)
 	}
@@ -55,15 +55,15 @@ func rulesMainMenu() {
 
 	for {
 		fmt.Fprintf(os.Stderr, "\n\033[1mConstitution Rule Manager\033[0m\n")
-		fmt.Fprintf(os.Stderr, "  \033[2m%d правил (%d включено)\033[0m\n\n", len(policy.Rules), countEnabled(policy))
+		fmt.Fprintf(os.Stderr, "  \033[2m%d rules (%d enabled)\033[0m\n\n", len(policy.Rules), countEnabled(policy))
 
-		idx := promptChoice("Что сделать:", []string{
-			"Показать все правила",
-			"Добавить новое правило",
-			"Редактировать правило",
-			"Удалить правило",
-			"Включить/выключить правило",
-			"Выход",
+		idx := promptChoice("Action:", []string{
+			"Show all rules",
+			"Add new rule",
+			"Edit rule",
+			"Delete rule",
+			"Enable/disable rule",
+			"Exit",
 		}, 5)
 
 		switch idx {
@@ -75,21 +75,21 @@ func rulesMainMenu() {
 			policy, _, _ = loadLocalConfig()
 		case 2:
 			cmdRulesList(nil)
-			id := promptString("ID правила для редактирования", "")
+			id := promptString("Rule ID to edit", "")
 			if id != "" {
 				cmdRulesEdit(id)
 				policy, _, _ = loadLocalConfig()
 			}
 		case 3:
 			cmdRulesList(nil)
-			id := promptString("ID правила для удаления", "")
+			id := promptString("Rule ID to delete", "")
 			if id != "" {
 				cmdRulesDelete(id, nil)
 				policy, _, _ = loadLocalConfig()
 			}
 		case 4:
 			cmdRulesList(nil)
-			id := promptString("ID правила для переключения", "")
+			id := promptString("Rule ID to toggle", "")
 			if id != "" {
 				cmdRulesToggle(id, nil)
 				policy, _, _ = loadLocalConfig()
@@ -116,22 +116,22 @@ func cmdRulesList(args []string) {
 		return
 	}
 
-	fmt.Fprintf(os.Stderr, "\n\033[1mПравила\033[0m (%s)\n\n", configPath)
+	fmt.Fprintf(os.Stderr, "\n\033[1mRules\033[0m (%s)\n\n", configPath)
 
 	if len(policy.Rules) == 0 {
-		printHint("Нет правил. Запустите 'constitution rules add' для создания.")
+		printHint("No rules. Run 'constitution rules add' to create one.")
 		return
 	}
 
 	// Header
 	fmt.Fprintf(os.Stderr, "  \033[2m%-4s %-22s %-10s %-8s %-4s %-18s %s\033[0m\n",
-		"#", "ID", "Статус", "Severity", "Pri", "Events", "Type")
+		"#", "ID", "Status", "Severity", "Pri", "Events", "Type")
 	fmt.Fprintf(os.Stderr, "  \033[2m%s\033[0m\n", strings.Repeat("─", 85))
 
 	for i, r := range policy.Rules {
-		status := "\033[32mВКЛЮЧЕНО\033[0m "
+		status := "\033[32mENABLED \033[0m "
 		if !r.Enabled {
-			status = "\033[2mвыключено\033[0m"
+			status = "\033[2mdisabled \033[0m"
 		}
 		events := strings.Join(r.HookEvents, ",")
 		if len(events) > 18 {
@@ -143,7 +143,7 @@ func cmdRulesList(args []string) {
 	}
 
 	enabled := countEnabled(policy)
-	fmt.Fprintf(os.Stderr, "\n  %d правил (%d включено, %d выключено)\n\n",
+	fmt.Fprintf(os.Stderr, "\n  %d rules (%d enabled, %d disabled)\n\n",
 		len(policy.Rules), enabled, len(policy.Rules)-enabled)
 }
 
@@ -158,17 +158,17 @@ func cmdRulesDelete(id string, args []string) {
 
 	idx := findRuleIndex(policy, id)
 	if idx < 0 {
-		printError(fmt.Sprintf("Правило %q не найдено", id))
+		printError(fmt.Sprintf("Rule %q not found", id))
 		printAvailableIDs(policy)
 		os.Exit(1)
 	}
 
 	rule := policy.Rules[idx]
 	if !yes {
-		fmt.Fprintf(os.Stderr, "\n  Удаление правила: \033[1m%s\033[0m (%s)\n", rule.ID, rule.Name)
+		fmt.Fprintf(os.Stderr, "\n  Deleting rule: \033[1m%s\033[0m (%s)\n", rule.ID, rule.Name)
 		previewRuleYAML(rule)
-		if !promptYN("Удалить?", false) {
-			fmt.Fprintln(os.Stderr, "  Отменено.")
+		if !promptYN("Delete?", false) {
+			fmt.Fprintln(os.Stderr, "  Cancelled.")
 			return
 		}
 	}
@@ -178,7 +178,7 @@ func cmdRulesDelete(id string, args []string) {
 		printError(err.Error())
 		os.Exit(1)
 	}
-	printSuccess(fmt.Sprintf("Правило %q удалено", id))
+	printSuccess(fmt.Sprintf("Rule %q deleted", id))
 }
 
 func cmdRulesToggle(id string, args []string) {
@@ -192,29 +192,29 @@ func cmdRulesToggle(id string, args []string) {
 
 	idx := findRuleIndex(policy, id)
 	if idx < 0 {
-		printError(fmt.Sprintf("Правило %q не найдено", id))
+		printError(fmt.Sprintf("Rule %q not found", id))
 		printAvailableIDs(policy)
 		os.Exit(1)
 	}
 
 	rule := &policy.Rules[idx]
-	newStatus := "ВЫКЛЮЧЕНО"
+	newStatus := "DISABLED"
 	if !rule.Enabled {
-		newStatus = "ВКЛЮЧЕНО"
+		newStatus = "ENABLED"
 	}
 
 	if !yes {
-		oldStatus := "ВКЛЮЧЕНО"
+		oldStatus := "ENABLED"
 		if !rule.Enabled {
-			oldStatus = "ВЫКЛЮЧЕНО"
+			oldStatus = "DISABLED"
 		}
-		fmt.Fprintf(os.Stderr, "\n  Правило %q сейчас %s.\n", id, oldStatus)
-		action := "Выключить"
+		fmt.Fprintf(os.Stderr, "\n  Rule %q is currently %s.\n", id, oldStatus)
+		action := "Disable"
 		if !rule.Enabled {
-			action = "Включить"
+			action = "Enable"
 		}
 		if !promptYN(fmt.Sprintf("%s?", action), true) {
-			fmt.Fprintln(os.Stderr, "  Отменено.")
+			fmt.Fprintln(os.Stderr, "  Cancelled.")
 			return
 		}
 	}
@@ -224,7 +224,7 @@ func cmdRulesToggle(id string, args []string) {
 		printError(err.Error())
 		os.Exit(1)
 	}
-	printSuccess(fmt.Sprintf("Правило %q теперь %s", id, newStatus))
+	printSuccess(fmt.Sprintf("Rule %q is now %s", id, newStatus))
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -256,7 +256,7 @@ func printAvailableIDs(policy *types.Policy) {
 	for i, r := range policy.Rules {
 		ids[i] = r.ID
 	}
-	printHint("Доступные ID: " + strings.Join(ids, ", "))
+	printHint("Available IDs: " + strings.Join(ids, ", "))
 }
 
 func hasFlag(args []string, flag string) bool {
@@ -271,12 +271,12 @@ func hasFlag(args []string, flag string) bool {
 func rulesHelp() {
 	fmt.Fprint(os.Stderr, `
 Usage:
-  constitution rules             Интерактивное главное меню
-  constitution rules list        Показать все правила
-  constitution rules add         Пошаговый визард создания правила
-  constitution rules edit <id>   Редактировать правило
-  constitution rules delete <id> Удалить правило
-  constitution rules toggle <id> Включить/выключить правило
+  constitution rules             Interactive main menu
+  constitution rules list        Show all rules
+  constitution rules add         Step-by-step rule creation wizard
+  constitution rules edit <id>   Edit a rule
+  constitution rules delete <id> Delete a rule
+  constitution rules toggle <id> Enable/disable a rule
 
 `)
 }

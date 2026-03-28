@@ -26,7 +26,7 @@ func cmdSkill(args []string) {
 	case "help", "--help", "-h":
 		skillHelp()
 	default:
-		printError(fmt.Sprintf("Неизвестная подкоманда: %s", args[0]))
+		printError(fmt.Sprintf("Unknown subcommand: %s", args[0]))
 		skillHelp()
 		os.Exit(1)
 	}
@@ -50,9 +50,9 @@ func cmdSkillInstall(args []string) {
 			os.Exit(1)
 		}
 	} else {
-		idx := promptChoice("Куда установить skills:", []string{
-			"User-level   (~/.claude/skills/) — все проекты",
-			"Project-level (.claude/skills/)  — этот проект",
+		idx := promptChoice("Where to install skills:", []string{
+			"User-level   (~/.claude/skills/) — all projects",
+			"Project-level (.claude/skills/)  — this project",
 		}, 0)
 		switch idx {
 		case 0:
@@ -67,14 +67,14 @@ func cmdSkillInstall(args []string) {
 		dir := filepath.Join(skillDir, name)
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			if !*quiet {
-				printError(fmt.Sprintf("Ошибка создания %s: %v", dir, err))
+				printError(fmt.Sprintf("Error creating %s: %v", dir, err))
 			}
 			continue
 		}
 		path := filepath.Join(dir, "SKILL.md")
 		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 			if !*quiet {
-				printError(fmt.Sprintf("Ошибка записи %s: %v", path, err))
+				printError(fmt.Sprintf("Error writing %s: %v", path, err))
 			}
 			continue
 		}
@@ -87,8 +87,8 @@ func cmdSkillInstall(args []string) {
 	if !*quiet {
 		fmt.Fprintln(os.Stderr)
 		if installed > 0 {
-			printSuccess(fmt.Sprintf("%d skill(s) установлено", installed))
-			printHint("Перезапустите Claude Code для активации")
+			printSuccess(fmt.Sprintf("%d skill(s) installed", installed))
+			printHint("Restart Claude Code to activate")
 		}
 	}
 }
@@ -112,16 +112,16 @@ func cmdSkillUninstall(args []string) {
 			dir := filepath.Join(baseDir, name)
 			if _, err := os.Stat(dir); err == nil {
 				os.RemoveAll(dir)
-				printSuccess(fmt.Sprintf("Удалён: %s", dir))
+				printSuccess(fmt.Sprintf("Removed: %s", dir))
 				removed++
 			}
 		}
 	}
 
 	if removed == 0 {
-		printHint("Constitution skills не найдены")
+		printHint("Constitution skills not found")
 	} else {
-		printSuccess(fmt.Sprintf("%d skill(s) удалено", removed))
+		printSuccess(fmt.Sprintf("%d skill(s) removed", removed))
 	}
 }
 
@@ -146,23 +146,23 @@ func cmdSkillList() {
 	}
 
 	if found == 0 {
-		printHint("Constitution skills не установлены")
-		printHint("Запустите: constitution skill install")
+		printHint("Constitution skills not installed")
+		printHint("Run: constitution skill install")
 	}
 }
 
 func skillHelp() {
 	fmt.Fprint(os.Stderr, `
 Usage:
-  constitution skill install               Установить Claude Code skills
-  constitution skill install --scope user  В ~/.claude/skills/ (все проекты)
-  constitution skill install --scope project  В .claude/skills/ (этот проект)
-  constitution skill uninstall             Удалить skills
-  constitution skill list                  Показать установленные
+  constitution skill install               Install Claude Code skills
+  constitution skill install --scope user  To ~/.claude/skills/ (all projects)
+  constitution skill install --scope project  To .claude/skills/ (this project)
+  constitution skill uninstall             Remove skills
+  constitution skill list                  Show installed skills
 
 Skills:
-  /constitution        — управление правилами, валидация, диагностика
-  /constitution-rules  — быстрое создание правил через диалог
+  /constitution        — rule management, validation, diagnostics
+  /constitution-rules  — quick rule creation via dialog
 
 `)
 }

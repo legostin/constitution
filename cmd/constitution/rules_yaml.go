@@ -15,7 +15,7 @@ import (
 func loadLocalConfig() (*types.Policy, string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return nil, "", fmt.Errorf("не удалось определить рабочую директорию: %w", err)
+		return nil, "", fmt.Errorf("failed to determine working directory: %w", err)
 	}
 
 	candidates := []string{
@@ -27,13 +27,13 @@ func loadLocalConfig() (*types.Policy, string, error) {
 		if _, err := os.Stat(path); err == nil {
 			policy, err := config.Load(path)
 			if err != nil {
-				return nil, path, fmt.Errorf("ошибка загрузки %s: %w", path, err)
+				return nil, path, fmt.Errorf("error loading %s: %w", path, err)
 			}
 			return policy, path, nil
 		}
 	}
 
-	return nil, "", fmt.Errorf("файл .constitution.yaml не найден. Запустите 'constitution init'")
+	return nil, "", fmt.Errorf(".constitution.yaml not found. Run 'constitution init'")
 }
 
 // saveConfig backs up the old config and writes the new one.
@@ -45,11 +45,11 @@ func saveConfig(path string, policy *types.Policy) error {
 
 	data, err := yaml.Marshal(policy)
 	if err != nil {
-		return fmt.Errorf("ошибка сериализации: %w", err)
+		return fmt.Errorf("serialization error: %w", err)
 	}
 
 	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return fmt.Errorf("ошибка записи %s: %w", path, err)
+		return fmt.Errorf("error writing %s: %w", path, err)
 	}
 	return nil
 }
@@ -63,11 +63,11 @@ func previewRuleYAML(rule types.Rule) {
 
 	data, err := yaml.Marshal(wrapper)
 	if err != nil {
-		printError(fmt.Sprintf("Ошибка сериализации: %v", err))
+		printError(fmt.Sprintf("Serialization error: %v", err))
 		return
 	}
 
-	fmt.Fprintf(os.Stderr, "\n  \033[2m── Превью ──────────────────────────────────────\033[0m\n")
+	fmt.Fprintf(os.Stderr, "\n  \033[2m── Preview ─────────────────────────────────────\033[0m\n")
 	for _, line := range splitLines(string(data)) {
 		// Skip the "rules:" wrapper line
 		if line == "rules:" {
@@ -75,7 +75,7 @@ func previewRuleYAML(rule types.Rule) {
 		}
 		fmt.Fprintf(os.Stderr, "  %s\n", line)
 	}
-	fmt.Fprintf(os.Stderr, "  \033[2m── Конец превью ────────────────────────────────\033[0m\n\n")
+	fmt.Fprintf(os.Stderr, "  \033[2m── End of preview ──────────────────────────────\033[0m\n\n")
 }
 
 func splitLines(s string) []string {
