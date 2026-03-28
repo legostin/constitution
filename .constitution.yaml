@@ -325,8 +325,10 @@ rules:
     hook_events: [PreToolUse]
     tool_match: [Bash]
     check:
-      type: cel
+      type: cmd_validate
       params:
-        expression: >
-          tool_input.command.contains("git push") &&
-          (tool_input.command.contains("main") || tool_input.command.contains("master"))
+        deny_patterns:
+          - name: "Push to main"
+            regex: "\\bgit\\s+push\\s+\\S+\\s+main\\b"
+          - name: "Push to master"
+            regex: "\\bgit\\s+push\\s+\\S+\\s+master\\b"
