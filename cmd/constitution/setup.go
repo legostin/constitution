@@ -370,7 +370,7 @@ func wizardSkills(platforms []string, yes bool) []string {
 		if p == "codex" {
 			label = "OpenAI Codex"
 		}
-		items = append(items, checklistItem{label, fmt.Sprintf(".%s/skills/", p[:5]+"e"[:min(1, 5-len(p))]), true})
+		items = append(items, checklistItem{label, fmt.Sprintf(".%s/skills/", p), true})
 	}
 
 	// Simplify: just ask yes/no
@@ -751,9 +751,3 @@ func homeDir() string {
 	return h
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
